@@ -1,3 +1,6 @@
+// main UI hai yha pr search or component show hoge
+
+
 import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 

@@ -1,6 +1,7 @@
+// yha pr kaam krna hai vendor ka card show hora hai UI me toh yha database se relavent info show karana hai 
+
 import { Link } from "react-router-dom";
 
-const fallbackImage = "https://via.placeholder.com/600x400?text=Wedding+Vendor";
 
 const VendorCard = ({ vendor }) => {
   return (

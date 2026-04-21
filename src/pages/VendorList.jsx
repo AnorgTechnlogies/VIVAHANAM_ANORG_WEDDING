@@ -1,3 +1,5 @@
+// Yeh component VendorList page hai — matlab vendors ki list fetch karke UI me dikhata hai, aur saath me search + filter + pagination handle karta hai.
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
