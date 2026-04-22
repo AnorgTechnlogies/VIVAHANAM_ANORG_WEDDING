@@ -2,7 +2,7 @@
 // file change kiya hu pehle ye component me thi maine utils me add kiya hu usko iske route ko adjust kiya hu contactPage me 
 import { useState, useEffect } from 'react';
 
-const API_URL = import.meta.env.VITE_API_KEY ;
+const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 
 export const useContactInfo = () => {
   const [contactInfo, setContactInfo] = useState({
@@ -27,7 +27,13 @@ export const useContactInfo = () => {
         const response = await fetch(`${API_URL}/admin/contact-info/active`);
         
         if (!response.ok) {
-          throw new Error('Failed to fetch contact info');
+          throw new Error(`Failed to fetch contact info: ${response.status} ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          console.warn("Received non-JSON response for contact info:", contentType);
+          return;
         }
 
         const data = await response.json();
