@@ -55,7 +55,10 @@ export default function VendorRegister() {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [stepIndex, setStepIndex] = useState(0);
-  const [formData, setFormData] = useState({});
+  // Keep these names (required for dependency handling patch)
+  const [formValues, setFormValues] = useState({});
+  const [dynamicOptions, setDynamicOptions] = useState({});
+  const [dynamicLoading, setDynamicLoading] = useState({});
   const [uploadedFiles, setUploadedFiles] = useState({});
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -119,7 +122,7 @@ export default function VendorRegister() {
         const saved = localStorage.getItem(LS_KEY);
         const savedParsed = saved ? JSON.parse(saved) : null;
         const initial = buildInitialData(configData.data);
-        setFormData({ ...initial, ...(savedParsed?.data || {}) });
+        setFormValues({ ...initial, ...(savedParsed?.data || {}) });
         setUploadedFiles(savedParsed?.uploadedFiles || {});
       } catch (e) {
         console.error(e);
@@ -129,6 +132,53 @@ export default function VendorRegister() {
     };
     load();
   }, []);
+
+  // Dependency logic from MarketplaceFormConfig only (no extra API call):
+  // subcategory options come from field.validation.byCategory[parentValue]
+  useEffect(() => {
+    if (!config) return;
+
+    const allFields = (config.sections || []).flatMap((s) => (s.fields || []).filter((f) => f.enabled !== false));
+    const dependentFields = allFields.filter((f) => f.depends_on);
+    if (dependentFields.length === 0) return;
+
+    dependentFields.forEach((field) => {
+      const childKey = sanitizeKey(field.key);
+      const parentKey = sanitizeKey(field.depends_on);
+      if (!childKey || !parentKey) return;
+
+      const parentValue = formValues[parentKey];
+      if (!parentValue) {
+        setDynamicOptions((prev) => (prev[childKey] ? { ...prev, [childKey]: [] } : prev));
+        setFormValues((prev) => (prev[childKey] ? { ...prev, [childKey]: "" } : prev));
+        return;
+      }
+
+      const byCategory = field?.validation?.byCategory;
+      const mapped = byCategory && typeof byCategory === "object" ? byCategory[parentValue] : null;
+      const list = Array.isArray(mapped) ? mapped : [];
+
+      const options = list
+        .map((item) =>
+          typeof item === "string"
+            ? { label: item, value: item }
+            : { label: item?.label || item?.name || item?.value, value: item?.value || item?._id || item?.name }
+        )
+        .filter((o) => o.label && o.value);
+
+      setDynamicOptions((prev) => ({ ...prev, [childKey]: options }));
+      setDynamicLoading((prev) => ({ ...prev, [childKey]: false }));
+
+      // Reset child value if current value no longer valid for selected parent
+      setFormValues((prev) => {
+        const current = prev[childKey];
+        if (!current) return prev;
+        const valid = options.some((o) => o.value === current);
+        return valid ? prev : { ...prev, [childKey]: "" };
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, formValues]);
 
   const persistLocal = (nextData, nextFiles) => {
     localStorage.setItem(
@@ -148,7 +198,7 @@ export default function VendorRegister() {
   const saveDraft = async () => {
     setSaving(true);
     try {
-      persistLocal(formData, uploadedFiles);
+      persistLocal(formValues, uploadedFiles);
       if (!vendorEmail && !vendorPhone) return;
       const res = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/submissions/draft`, {
         method: "PUT",
@@ -156,7 +206,7 @@ export default function VendorRegister() {
         body: JSON.stringify({
           vendorEmail: vendorEmail || undefined,
           vendorPhone: vendorPhone || undefined,
-          data: formData,
+          data: formValues,
           uploadedFiles,
         }),
       });
@@ -188,7 +238,7 @@ export default function VendorRegister() {
 
     setUploadedFiles((prev) => {
       const next = { ...prev, [key]: [...(prev[key] || []), ...uploaded] };
-      persistLocal(formData, next);
+      persistLocal(formValues, next);
       return next;
     });
   };
@@ -198,14 +248,14 @@ export default function VendorRegister() {
     setUploadedFiles((prev) => {
       const nextList = (prev[key] || []).filter((_, i) => i !== idx);
       const next = { ...prev, [key]: nextList };
-      persistLocal(formData, next);
+      persistLocal(formValues, next);
       return next;
     });
   };
 
   const nextStep = async () => {
     if (!activeSection) return;
-    const stepErrors = validateStep(activeSection, formData, uploadedFiles);
+    const stepErrors = validateStep(activeSection, formValues, uploadedFiles);
     setErrors(stepErrors);
     if (Object.keys(stepErrors).length > 0) return;
     await saveDraft();
@@ -221,7 +271,7 @@ export default function VendorRegister() {
 
   const submit = async () => {
     const allErrors = {};
-    sections.forEach((s) => Object.assign(allErrors, validateStep(s, formData, uploadedFiles)));
+    sections.forEach((s) => Object.assign(allErrors, validateStep(s, formValues, uploadedFiles)));
     setErrors(allErrors);
     if (Object.keys(allErrors).length > 0) {
       alert("Please fill all required fields.");
@@ -239,7 +289,7 @@ export default function VendorRegister() {
         body: JSON.stringify({
           vendorEmail: vendorEmail || undefined,
           vendorPhone: vendorPhone || undefined,
-          data: formData,
+          data: formValues,
           uploadedFiles,
         }),
       });
@@ -282,9 +332,9 @@ export default function VendorRegister() {
         return (
           <input
             className={common}
-            value={formData[key] ?? ""}
+            value={formValues[key] ?? ""}
             placeholder={field.placeholder || ""}
-            onChange={(e) => setFormData((p) => ({ ...p, [key]: e.target.value }))}
+            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
           />
         );
       case "number":
@@ -292,9 +342,9 @@ export default function VendorRegister() {
           <input
             className={common}
             type="number"
-            value={formData[key] ?? ""}
+            value={formValues[key] ?? ""}
             placeholder={field.placeholder || ""}
-            onChange={(e) => setFormData((p) => ({ ...p, [key]: e.target.value === "" ? "" : Number(e.target.value) }))}
+            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value === "" ? "" : Number(e.target.value) }))}
           />
         );
       case "textarea":
@@ -302,16 +352,23 @@ export default function VendorRegister() {
           <textarea
             className={common}
             rows={4}
-            value={formData[key] ?? ""}
+            value={formValues[key] ?? ""}
             placeholder={field.placeholder || ""}
-            onChange={(e) => setFormData((p) => ({ ...p, [key]: e.target.value }))}
+            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
           />
         );
       case "dropdown":
+        const options = field.depends_on ? dynamicOptions[key] || [] : field.options || [];
         return (
-          <select className={common} value={formData[key] ?? ""} onChange={(e) => setFormData((p) => ({ ...p, [key]: e.target.value }))}>
+          <select
+            className={common}
+            value={formValues[key] ?? ""}
+            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
+            disabled={!!field.depends_on && !formValues[sanitizeKey(field.depends_on)]}
+          >
             <option value="">Select...</option>
-            {(field.options || []).map((o) => (
+            {dynamicLoading[key] && <option value="">Loading…</option>}
+            {options.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -326,8 +383,8 @@ export default function VendorRegister() {
                 <input
                   type="radio"
                   name={key}
-                  checked={(formData[key] ?? "") === o.value}
-                  onChange={() => setFormData((p) => ({ ...p, [key]: o.value }))}
+                  checked={(formValues[key] ?? "") === o.value}
+                  onChange={() => setFormValues((p) => ({ ...p, [key]: o.value }))}
                 />
                 <span>{o.label}</span>
               </label>
@@ -335,7 +392,7 @@ export default function VendorRegister() {
           </div>
         );
       case "multi_checkbox": {
-        const cur = Array.isArray(formData[key]) ? formData[key] : [];
+        const cur = Array.isArray(formValues[key]) ? formValues[key] : [];
         return (
           <div className="mt-2 grid sm:grid-cols-2 gap-2">
             {(field.options || []).map((o) => {
@@ -346,7 +403,7 @@ export default function VendorRegister() {
                     type="checkbox"
                     checked={checked}
                     onChange={(e) => {
-                      setFormData((p) => {
+                      setFormValues((p) => {
                         const prev = Array.isArray(p[key]) ? p[key] : [];
                         const next = e.target.checked ? [...prev, o.value] : prev.filter((v) => v !== o.value);
                         return { ...p, [key]: next };
@@ -393,9 +450,9 @@ export default function VendorRegister() {
         return (
           <input
             className={common}
-            value={formData[key] ?? ""}
+            value={formValues[key] ?? ""}
             placeholder={field.placeholder || ""}
-            onChange={(e) => setFormData((p) => ({ ...p, [key]: e.target.value }))}
+            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
           />
         );
     }
