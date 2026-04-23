@@ -5,6 +5,7 @@ import { Menu, X, User, LogOut, Edit, LogIn, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../assets/Vivahanam Logo 2.png";
 import { generateDeviceId, getDeviceInfo } from "../../utils/deviceFingerprint";
+import useVendorNavigation from "../hooks/useVendorNavigation";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -46,6 +47,7 @@ const Navbar = () => {
   const [touchedFields, setTouchedFields] = useState({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
+  const { handleVendorNavigation } = useVendorNavigation();
 
   const API_URL = import.meta.env.VITE_API_KEY;
   const MAIN_DOMAIN = "https://vivahanam.com";
@@ -894,17 +896,32 @@ const handleHomeClick = () => {
                         </button>
                       </>
                     ) : (
-                      <button
-                        onClick={() => {
-                          setShowAuthModal(true);
-                          setAuthMode("login");
-                          setIsProfileDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
-                      >
-                        <LogIn className="h-4 w-4 text-amber-600" />
-                        Login
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setShowAuthModal(true);
+                            setAuthMode("login");
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
+                        >
+                          <LogIn className="h-4 w-4 text-amber-600" />
+                          Login
+                        </button>
+                        <div className="border-t border-gray-100 my-1"></div>
+                        <button
+                          onClick={() => {
+                            setIsProfileDropdownOpen(false);
+                            handleVendorNavigation();
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
+                        >
+                          <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          Vendor Login
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -966,16 +983,27 @@ const handleHomeClick = () => {
                 Profile
               </button>
             ) : (
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  setShowAuthModal(true);
-                  setAuthMode("login");
-                }}
-                className="w-full block py-2 px-3 text-gray-700 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200 font-medium text-left text-sm"
-              >
-                Login
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setShowAuthModal(true);
+                    setAuthMode("login");
+                  }}
+                  className="w-full block py-2 px-3 text-gray-700 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200 font-medium text-left text-sm"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    handleVendorNavigation();
+                  }}
+                  className="w-full block py-2 px-3 text-gray-700 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200 font-medium text-left text-sm"
+                >
+                  Vendor Login
+                </button>
+              </>
             )}
           </div>
         </div>

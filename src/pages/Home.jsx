@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { useEffect, useState } from "react";
+import useVendorNavigation from "../hooks/useVendorNavigation";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const ROOT_API_BASE = API_BASE.replace(/\/admin\/?$/, "");
 
 const Home = () => {
   const navigate = useNavigate();
+  const { handleVendorNavigation } = useVendorNavigation();
   const [scrolled, setScrolled] = useState(false);
   const [categories, setCategories] = useState([]);
   const [featuredVendors, setFeaturedVendors] = useState([]);
@@ -122,7 +124,7 @@ const Home = () => {
               <p className="text-gray-600 text-lg">Join India's favorite wedding planning platform. Register your business and get discovered by thousands of couples.</p>
             </div>
             <button
-              onClick={() => navigate("/wedding-shop/vendor-register")}
+              onClick={() => handleVendorNavigation()}
               className="bg-red-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-red-700 transition-colors shadow-md hover:shadow-xl transform hover:-translate-y-1 whitespace-nowrap"
             >
               Register as a Vendor

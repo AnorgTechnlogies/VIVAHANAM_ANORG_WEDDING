@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useNavigate } from "react-router-dom";
+
 const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
-const FORM_KEY = "photographer_vendor_onboarding";
+const FORM_KEY = "vendor_onboarding";
 const LS_KEY = `marketplace:${FORM_KEY}:draft`;
 
 const sanitizeKey = (value = "") =>
@@ -58,6 +60,26 @@ export default function VendorRegister() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const navigate = useNavigate();
+
+  // Authentication check
+  useEffect(() => {
+    const token = localStorage.getItem("vendorToken");
+    if (!token) {
+      navigate("/wedding-shop/vendor-auth");
+      return;
+    }
+
+    try {
+      const vendorData = JSON.parse(localStorage.getItem("vendorData") || "{}");
+      if (vendorData.isRegistered) {
+        setIsCompleted(true);
+      }
+    } catch (e) {
+      console.error("Failed to parse vendor data", e);
+    }
+  }, [navigate]);
 
   const sections = useMemo(() => {
     const list = (config?.sections || []).filter((s) => s.enabled !== false);
@@ -68,16 +90,35 @@ export default function VendorRegister() {
 
   useEffect(() => {
     const load = async () => {
+      const token = localStorage.getItem("vendorToken");
       try {
         setLoading(true);
-        const res = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/config`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.message || "Failed to load form config");
-        setConfig(data.data);
+        // 1. Fetch Form Config
+        const configRes = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/config`);
+        const configData = await configRes.json();
+        if (!configRes.ok) throw new Error(configData?.message || "Failed to load form config");
+        setConfig(configData.data);
 
+        // 2. Fetch Vendor Status from Server
+        const statusRes = await fetch(`${API_URL}/vendor/me`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const statusData = await statusRes.json();
+        
+        if (statusRes.ok && statusData.success) {
+          const status = statusData.data.registrationStatus;
+          // Only automatically redirect if already Approved or Rejected.
+          // If they are 'submitted' or 'draft' or 'null', they can stay here to see/edit their info.
+          if (status === 'approved' || status === 'rejected') {
+            navigate("/wedding-shop/vendor/dashboard");
+            return;
+          }
+        }
+
+        // 3. Load Draft from LocalStorage
         const saved = localStorage.getItem(LS_KEY);
         const savedParsed = saved ? JSON.parse(saved) : null;
-        const initial = buildInitialData(data.data);
+        const initial = buildInitialData(configData.data);
         setFormData({ ...initial, ...(savedParsed?.data || {}) });
         setUploadedFiles(savedParsed?.uploadedFiles || {});
       } catch (e) {
@@ -100,8 +141,9 @@ export default function VendorRegister() {
     );
   };
 
-  const vendorEmail = (formData.email || formData.vendor_email || "").toString().trim();
-  const vendorPhone = (formData.phone || formData.vendor_phone || "").toString().trim();
+  const vendorData = JSON.parse(localStorage.getItem("vendorData") || "{}");
+  const vendorEmail = vendorData.email || "";
+  const vendorPhone = vendorData.mobile || "";
 
   const saveDraft = async () => {
     setSaving(true);
@@ -186,7 +228,7 @@ export default function VendorRegister() {
       return;
     }
     if (!vendorEmail && !vendorPhone) {
-      alert("Please provide at least an email or phone number (add a field with key `email` or `phone`).");
+      alert("Authentication error: Could not find vendor email/phone.");
       return;
     }
     setSubmitting(true);
@@ -204,8 +246,19 @@ export default function VendorRegister() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Submit failed");
       localStorage.removeItem(LS_KEY);
+      
+      // Update local storage to prevent duplicate submissions
+      try {
+        const currentData = JSON.parse(localStorage.getItem("vendorData") || "{}");
+        currentData.isRegistered = true;
+        currentData.registrationStatus = 'submitted';
+        localStorage.setItem("vendorData", JSON.stringify(currentData));
+      } catch (e) {
+        console.error("Failed to update vendorData", e);
+      }
+
+      setIsCompleted(true);
       alert("Submitted successfully!");
-      setStepIndex(0);
     } catch (e) {
       console.error(e);
       alert(e.message || "Submit failed");
@@ -360,6 +413,30 @@ export default function VendorRegister() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-gray-700">Form is not available yet. (Admin needs to publish it.)</div>
+      </div>
+    );
+  }
+
+  if (isCompleted) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <div className="bg-white rounded-2xl shadow border border-green-100 overflow-hidden text-center py-16">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Complete!</h2>
+          <p className="text-gray-600 max-w-md mx-auto mb-8">
+            Thank you for completing your vendor profile. Your submission has been received and is currently under review by our team.
+          </p>
+          <button 
+            onClick={() => navigate("/wedding-shop/vendor/dashboard")}
+            className="px-6 py-3 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition"
+          >
+            Go to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
