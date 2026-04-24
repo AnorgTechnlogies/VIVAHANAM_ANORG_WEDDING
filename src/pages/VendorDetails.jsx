@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
+const ROOT_API_BASE = API_BASE.replace(/\/admin\/?$/, "");
+
+const getImageUrl = (img) => {
+  if (!img) return null;
+  if (img.startsWith("http")) return img;
+  return `${ROOT_API_BASE.replace("/api", "")}${img}`;
+};
 
 const VendorDetails = () => {
   const { id } = useParams();
@@ -61,7 +68,7 @@ const VendorDetails = () => {
       {/* ── HERO BANNER ── */}
       <div style={{ height: "45vh", position: "relative", overflow: "hidden" }}>
         <img 
-          src={vendor.image || (vendor.gallery && vendor.gallery[0]) || "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1600&auto=format&fit=crop"} 
+          src={getImageUrl(vendor.image || (vendor.gallery && vendor.gallery[0])) || "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1600&auto=format&fit=crop"} 
           alt={vendor.name} 
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
@@ -122,9 +129,31 @@ const VendorDetails = () => {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
                 {vendor.gallery.map((img, i) => (
                   <div key={i} style={{ borderRadius: 12, overflow: "hidden", height: 200, cursor: "pointer" }}>
-                    <img src={img} alt={`Gallery ${i}`} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s" }} onMouseEnter={e => e.target.style.transform = "scale(1.1)"} onMouseLeave={e => e.target.style.transform = "scale(1)"} />
+                    <img src={getImageUrl(img)} alt={`Gallery ${i}`} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s" }} onMouseEnter={e => e.target.style.transform = "scale(1.1)"} onMouseLeave={e => e.target.style.transform = "scale(1)"} />
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {/* Dynamic Additional Details */}
+          {vendor.additionalData && Object.keys(vendor.additionalData).length > 0 && (
+            <section style={{ borderTop: "1px solid #F5E9D0", paddingTop: 40 }}>
+              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, color: "#2C2420", marginBottom: 24 }}>Service Details</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 24 }}>
+                {Object.entries(vendor.additionalData).map(([key, val]) => {
+                  if (key === "about" || key === "description" || !val) return null;
+                  return (
+                    <div key={key}>
+                      <div style={{ fontSize: 12, color: "#7A6E6A", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>
+                        {key.replace(/_/g, " ")}
+                      </div>
+                      <div style={{ fontSize: 16, color: "#2C2420", fontWeight: 500 }}>
+                        {Array.isArray(val) ? val.join(", ") : String(val)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}

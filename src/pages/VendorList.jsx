@@ -6,6 +6,13 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
+const ROOT_API_BASE = API_BASE.replace(/\/admin\/?$/, "");
+
+const getImageUrl = (img) => {
+  if (!img) return null;
+  if (img.startsWith("http")) return img;
+  return `${ROOT_API_BASE.replace("/api", "")}${img}`;
+};
 
 // ─── EMPTY STATE COMPONENT ────────────────────────────────────────────────────
 const EmptyState = ({ onClearFilters }) => {
@@ -186,7 +193,7 @@ const SkeletonCard = () => (
 const VendorCard = ({ vendor }) => {
   const navigate = useNavigate();
   // Image priority: vendor.image > vendor.gallery[0] > placeholder
-  const imageUrl = vendor.image || (vendor.gallery && vendor.gallery[0]) || "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop";
+  const imageUrl = getImageUrl(vendor.image || (vendor.gallery && vendor.gallery[0])) || "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop";
 
   return (
     <div

@@ -22,6 +22,12 @@ const Home = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const getImageUrl = (img) => {
+    if (!img) return null;
+    if (img.startsWith("http")) return img;
+    return `${ROOT_API_BASE.replace("/api", "")}${img}`;
+  };
+
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
@@ -190,7 +196,7 @@ const Home = () => {
               >
                 <div className="h-48 overflow-hidden relative">
                   <img
-                    src={vendor.image || (vendor.gallery && vendor.gallery[0]) || "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop"}
+                    src={getImageUrl(vendor.image || (vendor.gallery && vendor.gallery[0])) || "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop"}
                     alt={vendor.name}
                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                   />
