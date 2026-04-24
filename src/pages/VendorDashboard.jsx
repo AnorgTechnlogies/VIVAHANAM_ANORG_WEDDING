@@ -1,14 +1,49 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, User, MapPin, Phone, Briefcase, Calendar, Star, TrendingUp, Package, Eye } from "lucide-react";
+import { Briefcase, FileText, LogOut, MapPin, User } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+const FORM_KEY = "vendor_onboarding";
+
+const STATUS_META = {
+  approved: { label: "Approved", badge: "bg-green-100 text-green-700" },
+  rejected: { label: "Rejected", badge: "bg-red-100 text-red-700" },
+  submitted: { label: "Under Review", badge: "bg-amber-100 text-amber-700" },
+  draft: { label: "Draft", badge: "bg-gray-100 text-gray-700" },
+};
+
+const toTitle = (value = "") =>
+  value
+    .toString()
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (s) => s.toUpperCase());
+
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === "") return "-";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
 
 export default function VendorDashboard() {
   const navigate = useNavigate();
   const [vendor, setVendor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    brandName: "",
+    mobile: "",
+    city: "",
+    vendorType: "",
+  });
+  const [isEditingForm, setIsEditingForm] = useState(false);
+  const [editableFormData, setEditableFormData] = useState({});
+  const [savingForm, setSavingForm] = useState(false);
 
   useEffect(() => {
     const fetchVendorData = async () => {
@@ -20,31 +55,12 @@ export default function VendorDashboard() {
 
       try {
         const res = await fetch(`${API_URL}/vendor/me`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` },
         });
-        
         const data = await res.json();
-        
-        if (!res.ok) {
-          throw new Error(data.message || "Session expired");
-        }
-        
-        // If status is not submitted/approved/rejected, they MUST go to registration
-        const status = data.data.registrationStatus;
-        const submission = data.data.submission;
-        const hasData = submission && submission.data && Object.keys(submission.data).length > 0;
-
-        // If not approved/rejected, and not (submitted WITH data), send to registration
-        if (status !== 'approved' && status !== 'rejected' && !(status === 'submitted' && hasData)) {
-          navigate("/wedding-shop/vendor-register");
-          return;
-        }
-
+        if (!res.ok || !data?.success) throw new Error(data?.message || "Session expired");
         setVendor(data.data);
       } catch (err) {
-        console.error("Dashboard error:", err);
         localStorage.removeItem("vendorToken");
         localStorage.removeItem("vendorData");
         navigate("/wedding-shop/vendor-auth");
@@ -52,9 +68,64 @@ export default function VendorDashboard() {
         setLoading(false);
       }
     };
-
     fetchVendorData();
   }, [navigate]);
+
+  useEffect(() => {
+    const initial = vendor?.submission?.data;
+    if (initial && typeof initial === "object") {
+      setEditableFormData(initial);
+    } else {
+      setEditableFormData({});
+    }
+    setIsEditingForm(false);
+  }, [vendor]);
+
+  useEffect(() => {
+    setProfileForm({
+      brandName: vendor?.brandName || "",
+      mobile: vendor?.mobile || "",
+      city: vendor?.city || "",
+      vendorType: vendor?.vendorType || "",
+    });
+    setIsEditingProfile(false);
+  }, [vendor]);
+
+  const profileFields = useMemo(() => {
+    if (!vendor) return [];
+    return [
+      { label: "Brand Name", value: vendor.brandName },
+      { label: "Vendor Type", value: vendor.vendorType },
+      { label: "Email", value: vendor.email },
+      { label: "Mobile", value: vendor.mobile },
+      { label: "City", value: vendor.city },
+      { label: "Joined On", value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "-" },
+    ];
+  }, [vendor]);
+
+  const submissionEntries = useMemo(() => {
+    const payload = isEditingForm ? editableFormData : vendor?.submission?.data;
+    if (!payload || typeof payload !== "object") return [];
+    return Object.entries(payload).map(([key, value]) => ({
+      key,
+      label: toTitle(key),
+      value: formatValue(value),
+    }));
+  }, [vendor, editableFormData, isEditingForm]);
+
+  const uploadedFiles = useMemo(() => {
+    const files = vendor?.submission?.uploadedFiles;
+    if (!files || typeof files !== "object") return [];
+    return Object.entries(files).flatMap(([fieldKey, values]) => {
+      if (!Array.isArray(values)) return [];
+      return values.map((file, idx) => ({
+        id: `${fieldKey}-${idx}`,
+        fieldKey,
+        name: file?.name || `File ${idx + 1}`,
+        url: file?.url?.startsWith("http") ? file.url : `${API_ORIGIN}${file?.url || ""}`,
+      }));
+    });
+  }, [vendor]);
 
   const handleLogout = () => {
     localStorage.removeItem("vendorToken");
@@ -62,45 +133,147 @@ export default function VendorDashboard() {
     navigate("/");
   };
 
+  const handleFieldEdit = (key, nextValue) => {
+    setEditableFormData((prev) => ({ ...prev, [key]: nextValue }));
+  };
+
+  const handleProfileFieldChange = (key, value) => {
+    setProfileForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveProfile = async () => {
+    const token = localStorage.getItem("vendorToken");
+    if (!token) {
+      alert("Session expired. Please login again.");
+      navigate("/wedding-shop/vendor-auth");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const res = await fetch(`${API_URL}/vendor/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profileForm),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) throw new Error(data?.message || "Failed to update profile");
+      setVendor(data.data);
+      localStorage.setItem("vendorData", JSON.stringify(data.data || {}));
+      setIsEditingProfile(false);
+      alert("Profile updated successfully.");
+    } catch (error) {
+      alert(error.message || "Unable to update profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSaveFormUpdate = async () => {
+    const token = localStorage.getItem("vendorToken");
+    if (!token) {
+      alert("Session expired. Please login again.");
+      navigate("/wedding-shop/vendor-auth");
+      return;
+    }
+
+    setSavingForm(true);
+    try {
+      const saveRes = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/draft`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          data: editableFormData,
+          uploadedFiles: vendor?.submission?.uploadedFiles || {},
+        }),
+      });
+      const saveData = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok) throw new Error(saveData?.message || "Failed to save update");
+
+      const submitRes = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/submit`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          data: editableFormData,
+          uploadedFiles: vendor?.submission?.uploadedFiles || {},
+        }),
+      });
+      const submitData = await submitRes.json().catch(() => ({}));
+      if (!submitRes.ok) throw new Error(submitData?.message || "Failed to submit updated form");
+
+      setVendor((prev) => ({
+        ...prev,
+        submission: {
+          ...(prev?.submission || {}),
+          data: editableFormData,
+          uploadedFiles: prev?.submission?.uploadedFiles || {},
+          status: "submitted",
+        },
+        registrationStatus: "submitted",
+      }));
+      setIsEditingForm(false);
+      alert("Form updated successfully.");
+    } catch (error) {
+      alert(error.message || "Unable to update form");
+    } finally {
+      setSavingForm(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-600" />
       </div>
     );
   }
 
   if (!vendor) return null;
 
+  const status = vendor.registrationStatus || "draft";
+  const statusMeta = STATUS_META[status] || STATUS_META.draft;
+  const completionBase = profileFields.filter((item) => item.value && item.value !== "-").length;
+  const profileCompletion = Math.round((completionBase / profileFields.length) * 100);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header Profile Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="h-32 bg-gradient-to-r from-amber-600 to-red-600"></div>
+        <div className="h-32 bg-gradient-to-r from-amber-600 to-red-600" />
         <div className="px-6 sm:px-10 pb-8 relative">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between">
             <div className="flex items-center sm:items-end -mt-12 sm:-mt-16 mb-4 sm:mb-0 gap-4 sm:gap-6 flex-col sm:flex-row">
               <div className="w-24 h-24 sm:w-32 sm:h-32 bg-white rounded-full p-2 shadow-lg">
                 <div className="w-full h-full bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-3xl sm:text-4xl font-bold">
-                  {vendor.brandName?.charAt(0).toUpperCase()}
+                  {(vendor.brandName || "V").charAt(0).toUpperCase()}
                 </div>
               </div>
               <div className="text-center sm:text-left mb-2">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{vendor.brandName}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{vendor.brandName || "Vendor"}</h1>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2 text-sm text-gray-600">
                   <span className="flex items-center gap-1">
                     <Briefcase className="w-4 h-4 text-amber-600" />
-                    {vendor.vendorType}
+                    {vendor.vendorType || "-"}
                   </span>
                   <span className="flex items-center gap-1">
                     <MapPin className="w-4 h-4 text-amber-600" />
-                    {vendor.city}
+                    {vendor.city || "-"}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusMeta.badge}`}>
+                    {statusMeta.label}
                   </span>
                 </div>
               </div>
             </div>
-            
-            <button 
+
+            <button
               onClick={handleLogout}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg font-medium hover:bg-red-100 transition-colors"
             >
@@ -112,255 +285,211 @@ export default function VendorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar Navigation */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-28">
             <nav className="flex flex-col p-4 space-y-1">
-              <button 
-                onClick={() => setActiveTab("overview")}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'overview' ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <TrendingUp className="w-5 h-5" />
-                Overview
-              </button>
-              <button 
-                onClick={() => setActiveTab("profile")}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'profile' ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <User className="w-5 h-5" />
-                My Profile
-              </button>
-              <button 
-                onClick={() => setActiveTab("services")}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'services' ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Package className="w-5 h-5" />
-                Manage Services
-              </button>
-              <button 
-                onClick={() => setActiveTab("bookings")}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'bookings' ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Calendar className="w-5 h-5" />
-                Bookings
-                <span className="ml-auto bg-red-100 text-red-600 py-0.5 px-2 rounded-full text-xs">2 New</span>
-              </button>
+              {[
+                { id: "overview", label: "Overview", icon: User },
+                { id: "profile", label: "My Profile", icon: User },
+                { id: "submission", label: "Submitted Form", icon: FileText },
+                { id: "documents", label: "Documents", icon: FileText },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+                      activeTab === item.id ? "bg-amber-50 text-amber-700" : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {item.label}
+                  </button>
+                );
+              })}
             </nav>
-            
-            <div className="p-4 border-t border-gray-100">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <div className="text-sm font-medium text-gray-900 mb-1">Registration Status</div>
-                {vendor.registrationStatus === 'approved' ? (
-                  <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    Approved & Active
-                  </div>
-                ) : vendor.registrationStatus === 'rejected' ? (
-                  <div className="flex items-center gap-2 text-red-600 text-sm font-medium">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    Application Rejected
-                  </div>
-                ) : vendor.registrationStatus === 'submitted' ? (
-                  <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
-                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                    Under Review
-                  </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-3 space-y-6">
+          {activeTab === "overview" && (
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="text-xs text-gray-500 mb-1">Registration Status</div>
+                <div className="text-xl font-bold text-gray-900">{statusMeta.label}</div>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="text-xs text-gray-500 mb-1">Profile Completion</div>
+                <div className="text-xl font-bold text-gray-900">{profileCompletion}%</div>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="text-xs text-gray-500 mb-1">Submitted Fields</div>
+                <div className="text-xl font-bold text-gray-900">{submissionEntries.length}</div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "profile" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between gap-3 mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Vendor Profile</h3>
+                {!isEditingProfile ? (
+                  <button
+                    onClick={() => setIsEditingProfile(true)}
+                    className="px-4 py-2 rounded-lg border border-amber-600 text-amber-700 hover:bg-amber-50"
+                  >
+                    Edit Profile
+                  </button>
                 ) : (
-                  <div>
-                    <div className="flex items-center gap-2 text-amber-600 text-sm font-medium mb-2">
-                      <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                      Pending Registration
-                    </div>
-                    <button 
-                      onClick={() => navigate('/wedding-shop/vendor-register')}
-                      className="w-full py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition"
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setIsEditingProfile(false);
+                        setProfileForm({
+                          brandName: vendor?.brandName || "",
+                          mobile: vendor?.mobile || "",
+                          city: vendor?.city || "",
+                          vendorType: vendor?.vendorType || "",
+                        });
+                      }}
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      disabled={savingProfile}
                     >
-                      Complete Now
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveProfile}
+                      className="px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                      disabled={savingProfile}
+                    >
+                      {savingProfile ? "Saving..." : "Save Profile"}
                     </button>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="lg:col-span-3">
-          {vendor.registrationStatus === 'submitted' && (
-            <div className="bg-amber-50 rounded-2xl shadow-sm border border-amber-200 p-8 text-center flex flex-col items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                <Package className="w-8 h-8 text-amber-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Account Under Review</h3>
-              <p className="text-gray-600 max-w-md mx-auto mb-6">
-                Your vendor registration has been submitted and is currently being reviewed by our admin team. You will be notified once it is approved and you can start listing your services.
-              </p>
-              <button 
-                onClick={() => navigate('/wedding-shop/vendor-register')}
-                className="px-6 py-2 bg-white border border-amber-600 text-amber-600 rounded-lg font-medium hover:bg-amber-50 transition"
-              >
-                View / Edit Registration
-              </button>
-            </div>
-          )}
-
-          {vendor.registrationStatus === 'rejected' && (
-            <div className="bg-red-50 rounded-2xl shadow-sm border border-red-200 p-8 text-center flex flex-col items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <LogOut className="w-8 h-8 text-red-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Application Rejected</h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Unfortunately, your vendor application has been rejected by the admin. Please contact support for more information or to appeal this decision.
-              </p>
-            </div>
-          )}
-
-          {vendor.registrationStatus === 'approved' && activeTab === "overview" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Eye className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-medium text-green-600">+12%</span>
-                  </div>
-                  <div className="text-gray-500 text-sm font-medium mb-1">Profile Views</div>
-                  <div className="text-2xl font-bold text-gray-900">1,248</div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
-                      <Calendar className="w-5 h-5 text-amber-600" />
-                    </div>
-                    <span className="text-sm font-medium text-green-600">+3%</span>
-                  </div>
-                  <div className="text-gray-500 text-sm font-medium mb-1">Total Bookings</div>
-                  <div className="text-2xl font-bold text-gray-900">42</div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
-                      <Star className="w-5 h-5 text-green-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-400">Current</span>
-                  </div>
-                  <div className="text-gray-500 text-sm font-medium mb-1">Average Rating</div>
-                  <div className="text-2xl font-bold text-gray-900">4.8 / 5.0</div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Inquiries (Placeholder)</h3>
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl border border-gray-100 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
-                          {['R', 'A', 'S'][i-1]}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{['Rahul Sharma', 'Anjali Gupta', 'Sneha Patel'][i-1]}</div>
-                          <div className="text-sm text-gray-500">Requested a quote for {vendor.vendorType} services</div>
-                        </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                {profileFields.map((item) => (
+                  <div key={item.label}>
+                    <div className="text-sm text-gray-500 mb-1">{item.label}</div>
+                    {isEditingProfile && item.label !== "Email" && item.label !== "Joined On" ? (
+                      <input
+                        type="text"
+                        value={
+                          item.label === "Brand Name"
+                            ? profileForm.brandName
+                            : item.label === "Vendor Type"
+                            ? profileForm.vendorType
+                            : item.label === "Mobile"
+                            ? profileForm.mobile
+                            : profileForm.city
+                        }
+                        onChange={(e) => {
+                          if (item.label === "Brand Name") handleProfileFieldChange("brandName", e.target.value);
+                          else if (item.label === "Vendor Type") handleProfileFieldChange("vendorType", e.target.value);
+                          else if (item.label === "Mobile") handleProfileFieldChange("mobile", e.target.value);
+                          else handleProfileFieldChange("city", e.target.value);
+                        }}
+                        className="w-full bg-white border border-gray-300 rounded-lg p-3 text-gray-900"
+                      />
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 font-medium text-gray-900">
+                        {item.value || "-"}
                       </div>
-                      <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
-                        View Details
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "submission" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between gap-3 mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Submitted Registration Data</h3>
+                {submissionEntries.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {!isEditingForm ? (
+                      <button
+                        onClick={() => setIsEditingForm(true)}
+                        className="px-4 py-2 rounded-lg border border-amber-600 text-amber-700 hover:bg-amber-50"
+                      >
+                        Edit Form
                       </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setIsEditingForm(false);
+                            setEditableFormData(vendor?.submission?.data || {});
+                          }}
+                          className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                          disabled={savingForm}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveFormUpdate}
+                          className="px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                          disabled={savingForm}
+                        >
+                          {savingForm ? "Saving..." : "Save & Update"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              {submissionEntries.length === 0 ? (
+                <div className="text-sm text-gray-500">No submitted form data found yet.</div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {submissionEntries.map((item) => (
+                    <div key={item.key}>
+                      <div className="text-sm text-gray-500 mb-1">{item.label}</div>
+                      {isEditingForm ? (
+                        <input
+                          type="text"
+                          value={editableFormData[item.key] ?? ""}
+                          onChange={(e) => handleFieldEdit(item.key, e.target.value)}
+                          className="w-full bg-white border border-gray-300 rounded-lg p-3 text-gray-900"
+                        />
+                      ) : (
+                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-gray-900">
+                          {item.value}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
             </div>
           )}
 
-          {vendor.registrationStatus === 'approved' && activeTab === "profile" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Account Details</h3>
-                <button className="text-amber-600 hover:text-amber-700 font-medium text-sm flex items-center gap-1">
-                  Edit Profile
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Brand Name</label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                    {vendor.brandName}
-                  </div>
+          {activeTab === "documents" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-6">Uploaded Documents</h3>
+              {uploadedFiles.length === 0 ? (
+                <div className="text-sm text-gray-500">No documents uploaded yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {uploadedFiles.map((file) => (
+                    <a
+                      key={file.id}
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-900">{file.name}</div>
+                        <div className="text-xs text-gray-500">Field: {toTitle(file.fieldKey)}</div>
+                      </div>
+                      <span className="text-sm text-amber-700 font-medium">View</span>
+                    </a>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Vendor Type</label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                    {vendor.vendorType}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Email Address</label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                    {vendor.email}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number</label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                    {vendor.mobile}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Base City</label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                    {vendor.city}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Member Since</label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                    {new Date(vendor.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {vendor.registrationStatus === 'approved' && activeTab === "services" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
-              <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-                <Package className="w-8 h-8 text-amber-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Service Management</h3>
-              <p className="text-gray-500 max-w-md mx-auto mb-6">
-                You currently don't have any individual service packages listed. Create packages to allow customers to easily book your services.
-              </p>
-              <button className="px-6 py-3 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition shadow-lg shadow-amber-600/30">
-                + Add New Service Package
-              </button>
-            </div>
-          )}
-
-          {vendor.registrationStatus === 'approved' && activeTab === "bookings" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <h3 className="text-lg font-bold text-gray-900">All Bookings</h3>
-                <div className="flex gap-2">
-                  <select className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none">
-                    <option>Upcoming</option>
-                    <option>Past</option>
-                    <option>Cancelled</option>
-                  </select>
-                </div>
-              </div>
-              <div className="p-8 text-center">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 mx-auto">
-                  <Calendar className="w-8 h-8 text-gray-400" />
-                </div>
-                <h4 className="text-lg font-medium text-gray-900 mb-1">No Upcoming Bookings</h4>
-                <p className="text-gray-500">Your upcoming confirmed bookings will appear here.</p>
-              </div>
+              )}
             </div>
           )}
         </div>

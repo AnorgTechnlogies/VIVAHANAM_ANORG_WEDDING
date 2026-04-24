@@ -1,585 +1,329 @@
-import { useEffect, useMemo, useState } from "react";
-
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { 
+  CheckCircle2, 
+  Loader2, 
+  Upload, 
+  Trash2, 
+  ChevronRight,
+  Heart,
+  Info
+} from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const FORM_KEY = "vendor_onboarding";
-const LS_KEY = `marketplace:${FORM_KEY}:draft`;
+const LS_KEY = `vivahanam_vendor_form_${FORM_KEY}`;
 
 const sanitizeKey = (value = "") =>
-  value
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-
-const buildInitialData = (config) => {
-  const data = {};
-  (config?.sections || []).forEach((s) => {
-    (s.fields || []).forEach((f) => {
-      const k = sanitizeKey(f.key);
-      if (!k) return;
-      if (data[k] === undefined) data[k] = f.defaultValue ?? (f.type === "multi_checkbox" ? [] : "");
-    });
-  });
-  return data;
-};
-
-const validateStep = (section, formData, uploadedFiles) => {
-  const errors = {};
-  (section.fields || [])
-    .filter((f) => f.enabled !== false)
-    .forEach((f) => {
-      if (!f.required) return;
-      const key = sanitizeKey(f.key);
-      if (!key) return;
-      if (f.type === "file") {
-        const files = uploadedFiles?.[key] || [];
-        if (!Array.isArray(files) || files.length === 0) errors[key] = `${f.label} is required`;
-        return;
-      }
-      const value = formData[key];
-      if (f.type === "multi_checkbox") {
-        const arr = Array.isArray(value) ? value : [];
-        if (arr.length === 0) errors[key] = `${f.label} is required`;
-        return;
-      }
-      if (value === undefined || value === null || value === "") errors[key] = `${f.label} is required`;
-    });
-  return errors;
-};
+  value.toString().trim().toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
 
 export default function VendorRegister() {
+  const navigate = useNavigate();
   const [config, setConfig] = useState(null);
+  const [vendorInfo, setVendorInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stepIndex, setStepIndex] = useState(0);
-  // Keep these names (required for dependency handling patch)
+  const [error, setError] = useState("");
   const [formValues, setFormValues] = useState({});
-  const [dynamicOptions, setDynamicOptions] = useState({});
-  const [dynamicLoading, setDynamicLoading] = useState({});
   const [uploadedFiles, setUploadedFiles] = useState({});
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const navigate = useNavigate();
+  const [dynamicOptions, setDynamicOptions] = useState({});
 
-  // Authentication check
   useEffect(() => {
-    const token = localStorage.getItem("vendorToken");
-    if (!token) {
-      navigate("/wedding-shop/vendor-auth");
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/config`);
+        const data = await res.json();
+        if (res.ok) { setConfig(data.data); loadDraft(); }
+        else { setError(data.message || "Could not load form"); }
+      } catch (e) { setError("Connection error"); }
+      finally { setLoading(false); }
+    };
+
+    const fetchVendor = async () => {
+      try {
+        const token = localStorage.getItem("vendorToken");
+        if (!token) return;
+        const res = await fetch(`${API_URL}/vendor/me`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setVendorInfo(data.data);
+          // If no draft, prefill from vendor profile
+          const saved = localStorage.getItem(LS_KEY);
+          if (!saved) {
+            const v = data.data;
+            const initial = {
+              brand_name: v.brandName || "",
+              email: v.email || "",
+              mobile: v.mobile || "",
+              city: v.city || "",
+              category: v.vendorType || ""
+            };
+            setFormValues(prev => ({ ...initial, ...prev }));
+          }
+        }
+      } catch (e) { console.error("Could not fetch vendor info", e); }
+    };
+
+    const fetchStates = async () => {
+      try {
+        const res = await fetch(`${API_URL}/locations/states`);
+        const data = await res.json();
+        if (res.ok) {
+          setDynamicOptions(prev => ({ ...prev, state: data.data }));
+        }
+      } catch (e) { console.error("Could not fetch states", e); }
+    };
+
+    fetchConfig();
+    fetchVendor();
+    fetchStates();
+  }, []);
+
+  const loadDraft = () => {
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+      try {
+        const { values, files } = JSON.parse(saved);
+        setFormValues(values || {});
+        setUploadedFiles(files || {});
+      } catch (e) { console.error(e); }
+    }
+  };
+
+  const persistLocal = (values, files) => {
+    localStorage.setItem(LS_KEY, JSON.stringify({ values, files }));
+  };
+
+  useEffect(() => {
+    if (!config) return;
+    const allFields = (config.sections || []).flatMap((s) => (s.fields || []).filter((f) => f.enabled !== false));
+    allFields.filter((f) => f.depends_on).forEach((field) => {
+      const childKey = sanitizeKey(field.key);
+      const parentValue = formValues[sanitizeKey(field.depends_on)];
+      if (field.depends_on_value && parentValue !== field.depends_on_value) {
+        if (formValues[childKey]) {
+          setFormValues(prev => { const n = { ...prev }; delete n[childKey]; return n; });
+        }
+      }
+      // Only for non-location dependent fields (like categories)
+      if (childKey !== "city" && parentValue && field?.validation?.byCategory?.[parentValue]) {
+        const list = field.validation.byCategory[parentValue];
+        setDynamicOptions(prev => ({ ...prev, [childKey]: list.map(i => typeof i === "string" ? {label:i,value:i} : i) }));
+      }
+    });
+  }, [config, formValues]);
+
+  // Handle dynamic city options based on state FROM DATABASE
+  useEffect(() => {
+    const selectedState = formValues["state"];
+    if (!selectedState) {
+      setDynamicOptions(prev => ({ ...prev, city: [] }));
       return;
     }
 
-    try {
-      const vendorData = JSON.parse(localStorage.getItem("vendorData") || "{}");
-      if (vendorData.isRegistered) {
-        setIsCompleted(true);
-      }
-    } catch (e) {
-      console.error("Failed to parse vendor data", e);
-    }
-  }, [navigate]);
-
-  const sections = useMemo(() => {
-    const list = (config?.sections || []).filter((s) => s.enabled !== false);
-    return [...list].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }, [config]);
-
-  const activeSection = sections[stepIndex] || null;
-
-  useEffect(() => {
-    const load = async () => {
-      const token = localStorage.getItem("vendorToken");
+    const fetchCities = async () => {
       try {
-        setLoading(true);
-        // 1. Fetch Form Config
-        const configRes = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/config`);
-        const configData = await configRes.json();
-        if (!configRes.ok) throw new Error(configData?.message || "Failed to load form config");
-        setConfig(configData.data);
-
-        // 2. Fetch Vendor Status from Server
-        const statusRes = await fetch(`${API_URL}/vendor/me`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const statusData = await statusRes.json();
-        
-        if (statusRes.ok && statusData.success) {
-          const status = statusData.data.registrationStatus;
-          // Only automatically redirect if already Approved or Rejected.
-          // If they are 'submitted' or 'draft' or 'null', they can stay here to see/edit their info.
-          if (status === 'approved' || status === 'rejected') {
-            navigate("/wedding-shop/vendor/dashboard");
-            return;
-          }
+        const res = await fetch(`${API_URL}/locations/states/${selectedState}/cities`);
+        const data = await res.json();
+        if (res.ok) {
+          setDynamicOptions(prev => ({ ...prev, city: data.data }));
         }
-
-        // 3. Load Draft from LocalStorage
-        const saved = localStorage.getItem(LS_KEY);
-        const savedParsed = saved ? JSON.parse(saved) : null;
-        const initial = buildInitialData(configData.data);
-        setFormValues({ ...initial, ...(savedParsed?.data || {}) });
-        setUploadedFiles(savedParsed?.uploadedFiles || {});
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
+      } catch (e) { console.error("Could not fetch cities", e); }
     };
-    load();
-  }, []);
+    fetchCities();
+  }, [formValues.state]);
 
-  // Dependency logic from MarketplaceFormConfig only (no extra API call):
-  // subcategory options come from field.validation.byCategory[parentValue]
-  useEffect(() => {
-    if (!config) return;
-
-    const allFields = (config.sections || []).flatMap((s) => (s.fields || []).filter((f) => f.enabled !== false));
-    const dependentFields = allFields.filter((f) => f.depends_on);
-    if (dependentFields.length === 0) return;
-
-    dependentFields.forEach((field) => {
-      const childKey = sanitizeKey(field.key);
-      const parentKey = sanitizeKey(field.depends_on);
-      if (!childKey || !parentKey) return;
-
-      const parentValue = formValues[parentKey];
-      if (!parentValue) {
-        setDynamicOptions((prev) => (prev[childKey] ? { ...prev, [childKey]: [] } : prev));
-        setFormValues((prev) => (prev[childKey] ? { ...prev, [childKey]: "" } : prev));
-        return;
-      }
-
-      const byCategory = field?.validation?.byCategory;
-      const mapped = byCategory && typeof byCategory === "object" ? byCategory[parentValue] : null;
-      const list = Array.isArray(mapped) ? mapped : [];
-
-      const options = list
-        .map((item) =>
-          typeof item === "string"
-            ? { label: item, value: item }
-            : { label: item?.label || item?.name || item?.value, value: item?.value || item?._id || item?.name }
-        )
-        .filter((o) => o.label && o.value);
-
-      setDynamicOptions((prev) => ({ ...prev, [childKey]: options }));
-      setDynamicLoading((prev) => ({ ...prev, [childKey]: false }));
-
-      // Reset child value if current value no longer valid for selected parent
-      setFormValues((prev) => {
-        const current = prev[childKey];
-        if (!current) return prev;
-        const valid = options.some((o) => o.value === current);
-        return valid ? prev : { ...prev, [childKey]: "" };
-      });
+  const handleInputChange = (key, value) => {
+    setFormValues((prev) => {
+      const next = { ...prev, [key]: value };
+      persistLocal(next, uploadedFiles);
+      return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, formValues]);
-
-  const persistLocal = (nextData, nextFiles) => {
-    localStorage.setItem(
-      LS_KEY,
-      JSON.stringify({
-        data: nextData,
-        uploadedFiles: nextFiles,
-        savedAt: Date.now(),
-      })
-    );
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
   };
-
-  const vendorData = JSON.parse(localStorage.getItem("vendorData") || "{}");
-  const vendorEmail = vendorData.email || "";
-  const vendorPhone = vendorData.mobile || "";
 
   const saveDraft = async () => {
     setSaving(true);
     try {
       persistLocal(formValues, uploadedFiles);
-      if (!vendorEmail && !vendorPhone) return;
-      const res = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/submissions/draft`, {
+      const token = localStorage.getItem("vendorToken");
+      await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/draft`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vendorEmail: vendorEmail || undefined,
-          vendorPhone: vendorPhone || undefined,
-          data: formValues,
-          uploadedFiles,
-        }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ data: formValues, uploadedFiles }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || "Failed to save draft");
-    } catch (e) {
-      console.error(e);
-      alert(e.message || "Failed to save draft");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const uploadFiles = async (field, files) => {
     const key = sanitizeKey(field.key);
-    if (!key) return;
     const list = Array.from(files || []);
-    if (list.length === 0) return;
-
+    const token = localStorage.getItem("vendorToken");
     const uploaded = [];
     for (const file of list) {
       const body = new FormData();
       body.append("file", file);
-      const res = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/upload`, { method: "POST", body });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || "Upload failed");
-      uploaded.push(data.data);
+      const res = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/upload`, { 
+        method: "POST", body, headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) uploaded.push(data.data);
     }
-
     setUploadedFiles((prev) => {
-      const next = { ...prev, [key]: [...(prev[key] || []), ...uploaded] };
+      const next = { ...prev, [key]: field.multiple ? [...(prev[key] || []), ...uploaded] : uploaded[0] };
       persistLocal(formValues, next);
       return next;
     });
   };
 
-  const removeUploaded = (fieldKey, idx) => {
-    const key = sanitizeKey(fieldKey);
-    setUploadedFiles((prev) => {
-      const nextList = (prev[key] || []).filter((_, i) => i !== idx);
-      const next = { ...prev, [key]: nextList };
-      persistLocal(formValues, next);
-      return next;
+  const validate = () => {
+    const nextErrors = {};
+    config.sections.forEach(s => {
+      (s.fields || []).forEach(f => {
+        if (f.depends_on && f.depends_on_value && formValues[sanitizeKey(f.depends_on)] !== f.depends_on_value) return;
+        if (f.required) {
+          const k = sanitizeKey(f.key);
+          const val = f.type === "file" ? uploadedFiles[k] : formValues[k];
+          if (!val || (Array.isArray(val) && val.length === 0)) nextErrors[k] = "Required";
+        }
+      });
     });
-  };
-
-  const nextStep = async () => {
-    if (!activeSection) return;
-    const stepErrors = validateStep(activeSection, formValues, uploadedFiles);
-    setErrors(stepErrors);
-    if (Object.keys(stepErrors).length > 0) return;
-    await saveDraft();
-    setStepIndex((i) => Math.min(i + 1, sections.length - 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const prevStep = () => {
-    setErrors({});
-    setStepIndex((i) => Math.max(0, i - 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const submit = async () => {
-    const allErrors = {};
-    sections.forEach((s) => Object.assign(allErrors, validateStep(s, formValues, uploadedFiles)));
-    setErrors(allErrors);
-    if (Object.keys(allErrors).length > 0) {
-      alert("Please fill all required fields.");
-      return;
-    }
-    if (!vendorEmail && !vendorPhone) {
-      alert("Authentication error: Could not find vendor email/phone.");
-      return;
-    }
+    if (!validate()) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/submissions/submit`, {
+      const token = localStorage.getItem("vendorToken");
+      const res = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/submit`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vendorEmail: vendorEmail || undefined,
-          vendorPhone: vendorPhone || undefined,
-          data: formValues,
-          uploadedFiles,
-        }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ data: formValues, uploadedFiles }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || "Submit failed");
-      localStorage.removeItem(LS_KEY);
-      
-      // Update local storage to prevent duplicate submissions
-      try {
-        const currentData = JSON.parse(localStorage.getItem("vendorData") || "{}");
-        currentData.isRegistered = true;
-        currentData.registrationStatus = 'submitted';
-        localStorage.setItem("vendorData", JSON.stringify(currentData));
-      } catch (e) {
-        console.error("Failed to update vendorData", e);
+      if (res.ok) { 
+        localStorage.removeItem(LS_KEY); 
+        alert("Application submitted successfully! Redirecting to dashboard...");
+        navigate("/wedding-shop/vendor/dashboard");
+      } else {
+        const data = await res.json();
+        alert(data.message || "Submission failed");
       }
-
-      setIsCompleted(true);
-      alert("Submitted successfully!");
-    } catch (e) {
-      console.error(e);
-      alert(e.message || "Submit failed");
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  const renderField = (field) => {
-    const key = sanitizeKey(field.key);
-    if (!key) return null;
-    const isError = !!errors[key];
-    const common =
-      "mt-1 w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-amber-500 " +
-      (isError ? "border-red-300" : "border-gray-300");
+  const renderField = (f) => {
+    const key = sanitizeKey(f.key);
+    const value = formValues[key] || "";
+    const base = "w-full bg-white border border-rose-100 rounded-2xl px-4 py-3.5 text-gray-700 focus:border-rose-400 focus:ring-2 focus:ring-rose-50 transition-all outline-none placeholder:text-gray-300";
 
-    if (field.enabled === false) return null;
-
-    switch (field.type) {
+    switch (f.type) {
       case "text":
-        return (
-          <input
-            className={common}
-            value={formValues[key] ?? ""}
-            placeholder={field.placeholder || ""}
-            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
-          />
-        );
-      case "number":
-        return (
-          <input
-            className={common}
-            type="number"
-            value={formValues[key] ?? ""}
-            placeholder={field.placeholder || ""}
-            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value === "" ? "" : Number(e.target.value) }))}
-          />
-        );
-      case "textarea":
-        return (
-          <textarea
-            className={common}
-            rows={4}
-            value={formValues[key] ?? ""}
-            placeholder={field.placeholder || ""}
-            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
-          />
-        );
+      case "number": return <input type={f.type} className={base} placeholder={f.placeholder} value={value} onChange={e => handleInputChange(key, e.target.value)} />;
+      case "textarea": return <textarea className={base} rows={4} placeholder={f.placeholder} value={value} onChange={e => handleInputChange(key, e.target.value)} />;
       case "dropdown":
-        const options = field.depends_on ? dynamicOptions[key] || [] : field.options || [];
+        const opts = dynamicOptions[key] || f.options || [];
         return (
-          <select
-            className={common}
-            value={formValues[key] ?? ""}
-            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
-            disabled={!!field.depends_on && !formValues[sanitizeKey(field.depends_on)]}
-          >
-            <option value="">Select...</option>
-            {dynamicLoading[key] && <option value="">Loading…</option>}
-            {options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
+          <select className={base} value={value} onChange={e => handleInputChange(key, e.target.value)}>
+            <option value="">Select Option</option>
+            {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         );
-      case "radio":
+      case "multi_checkbox":
+        const cur = Array.isArray(value) ? value : [];
         return (
-          <div className="mt-2 space-y-2">
-            {(field.options || []).map((o) => (
-              <label key={o.value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={key}
-                  checked={(formValues[key] ?? "") === o.value}
-                  onChange={() => setFormValues((p) => ({ ...p, [key]: o.value }))}
-                />
-                <span>{o.label}</span>
+          <div className="grid grid-cols-2 gap-3">
+            {(f.options || []).map(o => (
+              <label key={o.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${cur.includes(o.value) ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-white border-gray-50 text-gray-500 hover:border-rose-100"}`}>
+                <input type="checkbox" className="hidden" checked={cur.includes(o.value)} onChange={e => {
+                  const next = e.target.checked ? [...cur, o.value] : cur.filter(v => v !== o.value);
+                  handleInputChange(key, next);
+                }} />
+                <span className="text-sm font-medium">{o.label}</span>
               </label>
             ))}
           </div>
         );
-      case "multi_checkbox": {
-        const cur = Array.isArray(formValues[key]) ? formValues[key] : [];
+      case "file":
+        const files = uploadedFiles[key] || [];
+        const list = Array.isArray(files) ? files : [files];
         return (
-          <div className="mt-2 grid sm:grid-cols-2 gap-2">
-            {(field.options || []).map((o) => {
-              const checked = cur.includes(o.value);
-              return (
-                <label key={o.value} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(e) => {
-                      setFormValues((p) => {
-                        const prev = Array.isArray(p[key]) ? p[key] : [];
-                        const next = e.target.checked ? [...prev, o.value] : prev.filter((v) => v !== o.value);
-                        return { ...p, [key]: next };
-                      });
-                    }}
-                  />
-                  <span>{o.label}</span>
-                </label>
-              );
-            })}
+          <div className="space-y-3">
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-rose-100 rounded-2xl py-8 px-4 hover:bg-rose-50/30 transition-all cursor-pointer group">
+              <Upload className="w-6 h-6 text-rose-300 group-hover:text-rose-500 mb-2" />
+              <span className="text-sm font-medium text-rose-400">Upload {f.label}</span>
+              <input type="file" className="hidden" multiple={f.multiple} onChange={e => uploadFiles(f, e.target.files)} />
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {list.map((file, i) => (
+                <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-rose-100 shadow-sm">
+                  <img src={file.url || file} className="w-full h-full object-cover" />
+                  <button onClick={() => setUploadedFiles(p => ({...p, [key]: f.multiple ? list.filter((_, idx)=>idx!==i) : null }))} className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4 text-white" /></button>
+                </div>
+              ))}
+            </div>
           </div>
         );
-      }
-      case "file": {
-        const list = uploadedFiles?.[key] || [];
-        return (
-          <div className="mt-2 space-y-3">
-            <input
-              type="file"
-              accept={field.accept || "image/*,video/*"}
-              multiple={!!field.multiple}
-              onChange={(e) => uploadFiles(field, e.target.files)}
-            />
-            {Array.isArray(list) && list.length > 0 && (
-              <div className="space-y-2">
-                {list.map((f, idx) => (
-                  <div key={`${f.url}-${idx}`} className="flex items-center justify-between border rounded-lg px-3 py-2">
-                    <div className="text-sm text-gray-800 truncate">{f.name}</div>
-                    <button
-                      type="button"
-                      onClick={() => removeUploaded(key, idx)}
-                      className="text-sm text-red-700 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      }
-      default:
-        return (
-          <input
-            className={common}
-            value={formValues[key] ?? ""}
-            placeholder={field.placeholder || ""}
-            onChange={(e) => setFormValues((p) => ({ ...p, [key]: e.target.value }))}
-          />
-        );
+      default: return null;
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-gray-700">Loading vendor onboarding form…</div>
-      </div>
-    );
-  }
-
-  if (!config) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-gray-700">Form is not available yet. (Admin needs to publish it.)</div>
-      </div>
-    );
-  }
-
-  if (isCompleted) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="bg-white rounded-2xl shadow border border-green-100 overflow-hidden text-center py-16">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Complete!</h2>
-          <p className="text-gray-600 max-w-md mx-auto mb-8">
-            Thank you for completing your vendor profile. Your submission has been received and is currently under review by our team.
-          </p>
-          <button 
-            onClick={() => navigate("/wedding-shop/vendor/dashboard")}
-            className="px-6 py-3 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition"
-          >
-            Go to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-rose-50/30"><Loader2 className="w-8 h-8 text-rose-400 animate-spin" /></div>;
 
   return (
-    <div className="max-w-4xl mx-auto px-4">
-      <div className="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden">
-        <div className="px-6 py-5 border-b bg-gradient-to-r from-amber-600 to-orange-600">
-          <div className="text-white text-2xl font-bold"> Vendor Registration</div>
-          <div className="text-white/90 text-sm mt-1">
-            Step {Math.min(stepIndex + 1, sections.length)} of {Math.max(sections.length, 1)}
+    <div className="min-h-screen bg-gradient-to-br from-[#fffafa] to-[#fff5f5] py-8 md:py-16 px-4 font-['Outfit',sans-serif]">
+      <div className="max-w-5xl mx-auto">
+        <div className="text-center mb-10 md:mb-16 animate-in fade-in slide-in-from-top-4 duration-700">
+          <div className="inline-block p-3 bg-white rounded-2xl shadow-sm mb-4">
+            <Heart className="w-8 h-8 text-rose-400 fill-rose-400/10" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Become a Partner</h1>
+          <p className="text-gray-400 mt-2 font-medium">Join our family and showcase your services to thousands of couples.</p>
+        </div>
+
+        <div className="bg-white/70 backdrop-blur-xl rounded-[32px] md:rounded-[48px] shadow-xl shadow-rose-100/50 border border-white p-6 md:p-16 space-y-12 md:space-y-20">
+          {(config?.sections || []).filter(s => s.enabled !== false).map(s => {
+            const visible = (s.fields || []).filter(f => f.enabled !== false).filter(f => !f.depends_on || !f.depends_on_value || formValues[sanitizeKey(f.depends_on)] === f.depends_on_value);
+            if (visible.length === 0) return null;
+            return (
+              <div key={s.id} className="space-y-8">
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-bold uppercase tracking-widest text-rose-300">Section</span>
+                  <h2 className="text-xl font-bold text-gray-700">{s.title}</h2>
+                  <div className="h-px flex-1 bg-rose-50" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-8">
+                  {visible.map(f => (
+                    <div key={f.id} className={f.type === "textarea" || f.type === "multi_checkbox" || f.type === "file" ? "md:col-span-2" : ""}>
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <label className="text-sm font-bold text-gray-600 flex items-center gap-2">
+                          {f.label} {f.required && <span className="text-rose-400">*</span>}
+                        </label>
+                        {errors[sanitizeKey(f.key)] && <div className="text-[10px] font-bold text-rose-500 flex items-center gap-1"><Info className="w-3 h-3" />{errors[sanitizeKey(f.key)]}</div>}
+                      </div>
+                      {renderField(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="pt-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <button onClick={saveDraft} disabled={saving} className="text-sm font-bold text-gray-400 hover:text-rose-400 transition-colors flex items-center gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Draft"}
+            </button>
+            <button onClick={submit} disabled={submitting} className="w-full sm:w-auto px-12 py-4 bg-rose-400 text-white font-bold rounded-2xl shadow-lg shadow-rose-100 hover:bg-rose-500 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+              Submit Application
+            </button>
           </div>
         </div>
-
-        <div className="p-6">
-          {activeSection ? (
-            <>
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <div>
-                  <div className="text-xl font-semibold text-gray-900">{activeSection.title}</div>
-                  <div className="text-sm text-gray-600">{(activeSection.fields || []).length} fields</div>
-                </div>
-                <button
-                  onClick={saveDraft}
-                  disabled={saving || submitting}
-                  className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {saving ? "Saving…" : "Save Draft"}
-                </button>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-5">
-                {(activeSection.fields || [])
-                  .filter((f) => f.enabled !== false)
-                  .map((f) => {
-                    const key = sanitizeKey(f.key);
-                    const wide = f.type === "textarea" || f.type === "multi_checkbox" || f.type === "file";
-                    return (
-                      <div key={f.id || key} className={wide ? "md:col-span-2" : ""}>
-                        <label className="text-sm font-medium text-gray-800">
-                          {f.label} {f.required && <span className="text-red-600">*</span>}
-                        </label>
-                        {renderField(f)}
-                        {errors[key] && <div className="text-sm text-red-700 mt-1">{errors[key]}</div>}
-                      </div>
-                    );
-                  })}
-              </div>
-
-              <div className="mt-8 flex items-center justify-between">
-                <button
-                  onClick={prevStep}
-                  disabled={stepIndex === 0 || submitting}
-                  className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Back
-                </button>
-
-                {stepIndex < sections.length - 1 ? (
-                  <button
-                    onClick={nextStep}
-                    disabled={submitting}
-                    className="px-5 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    onClick={submit}
-                    disabled={submitting}
-                    className="px-5 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-                  >
-                    {submitting ? "Submitting…" : "Submit"}
-                  </button>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="text-gray-700">No enabled sections found.</div>
-          )}
-        </div>
-      </div>
-
-      <div className="text-xs text-gray-500 mt-4">
-        Draft is stored locally automatically. If you include a field with key <span className="font-mono">email</span> or{" "}
-        <span className="font-mono">phone</span>, drafts will also save to the server.
       </div>
     </div>
   );
