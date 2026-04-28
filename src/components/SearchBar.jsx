@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
-const ROOT_API_BASE = API_BASE.replace(/\/admin\/?$/, "");
 
 const SearchBar = ({ onSearch }) => {
   const [categories, setCategories] = useState([]);
@@ -15,8 +14,8 @@ const SearchBar = ({ onSearch }) => {
     const fetchMasters = async () => {
       try {
         const [catRes, locRes] = await Promise.all([
-          fetch(`${ROOT_API_BASE}/categories`),
-          fetch(`${ROOT_API_BASE}/locations`),
+          fetch(`${API_BASE}/categories`),
+          fetch(`${API_BASE}/locations/states`),
         ]);
         const [catData, locData] = await Promise.all([catRes.json(), locRes.json()]);
         setCategories(catData?.data || []);
@@ -42,10 +41,10 @@ const SearchBar = ({ onSearch }) => {
           className="w-full bg-gray-50/50 md:bg-transparent border border-gray-200 md:border-none md:border-r border-gray-300 rounded-xl md:rounded-none p-3 text-gray-700 focus:outline-none focus:ring-0 appearance-none font-medium"
           style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
         >
-          <option value="" className="text-gray-500">All Vendor Types</option>
+          <option key="" value="" className="text-gray-500">All Vendor Types</option>
           {categories.map((item) => (
-            <option key={item._id} value={item.name} className="text-gray-900">
-              {item.label}
+            <option key={item._id || item.name} value={item.name} className="text-gray-900">
+              {item.label || item.name}
             </option>
           ))}
         </select>
@@ -56,10 +55,10 @@ const SearchBar = ({ onSearch }) => {
           className="w-full bg-gray-50/50 md:bg-transparent border border-gray-200 md:border-none rounded-xl md:rounded-none p-3 text-gray-700 focus:outline-none focus:ring-0 appearance-none font-medium"
           style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
         >
-          <option value="" className="text-gray-500">All Locations</option>
+          <option key="" value="" className="text-gray-500">All Locations</option>
           {locations.map((item) => (
-            <option key={item._id} value={item.city} className="text-gray-900">
-              {item.city}, {item.state}
+            <option key={item.value || item._id} value={item.value} className="text-gray-900">
+              {item.label}
             </option>
           ))}
         </select>

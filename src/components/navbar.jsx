@@ -46,10 +46,11 @@ const Navbar = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [touchedFields, setTouchedFields] = useState({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authType, setAuthType] = useState(null);
   const navigate = useNavigate();
   const { handleVendorNavigation } = useVendorNavigation();
 
-  const API_URL = import.meta.env.VITE_API_KEY;
+  const API_URL = import.meta.env.VITE_API_KEYSU  || "http://localhost:8000/api";
   const MAIN_DOMAIN = "https://vivahanam.com";
 
   const validationRules = {
@@ -688,16 +689,28 @@ const Navbar = () => {
   const checkAuthStatus = () => {
     const token = localStorage.getItem("vivahanamToken");
     const userInfo = localStorage.getItem("vivahanamUser");
+    const vendorToken = localStorage.getItem("vendorToken");
+    const vendorInfo = localStorage.getItem("vendorData");
 
     if (token && userInfo) {
       setIsLoggedIn(true);
+      setAuthType('user');
       try {
         setUserData(JSON.parse(userInfo));
       } catch (error) {
         console.error("Error parsing user info:", error);
       }
+    } else if (vendorToken && vendorInfo) {
+      setIsLoggedIn(true);
+      setAuthType('vendor');
+      try {
+        setUserData(JSON.parse(vendorInfo));
+      } catch (error) {
+        console.error("Error parsing vendor info:", error);
+      }
     } else {
       setIsLoggedIn(false);
+      setAuthType(null);
       setUserData(null);
     }
   };
@@ -716,7 +729,10 @@ const Navbar = () => {
   const handleLogout = () => {
     localStorage.removeItem("vivahanamToken");
     localStorage.removeItem("vivahanamUser");
+    localStorage.removeItem("vendorToken");
+    localStorage.removeItem("vendorData");
     setIsLoggedIn(false);
+    setAuthType(null);
     setUserData(null);
     setIsProfileDropdownOpen(false);
 
@@ -760,7 +776,7 @@ const handleHomeClick = () => {
 { name: "Home", href: `${MAIN_DOMAIN}/`, onClick: handleHomeClick, isRelative: false },    { name: "Services & Plan", href: `${MAIN_DOMAIN}/PlanHomePage`, isRelative: false },
     { name: "About Us", href: `${MAIN_DOMAIN}/about`, isRelative: false },
     { name: "Contact Us", href: `${MAIN_DOMAIN}/contact`, isRelative: false },
-    { name: "Wedding Shop", href: "/shops", isRelative: true },
+    { name: "Wedding Services", href: "/shops", isRelative: true },
   ];
 
   // Helper function to render navigation links
@@ -822,22 +838,22 @@ const handleHomeClick = () => {
                   className="flex items-center gap-1 p-1.5 rounded-lg hover:bg-black-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 >
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-100 rounded-full flex items-center justify-center border-2 border-amber-200 flex-shrink-0">
-                    {isLoggedIn && userData?.name ? (
+                    {isLoggedIn && (authType === 'vendor' ? userData?.brandName : userData?.name) ? (
                       <span className="text-sm sm:text-base font-semibold text-amber-600">
-                        {userData.name
-                          .split(' ')
-                          .map(word => word.charAt(0))
-                          .join('')
-                          .toUpperCase()
-                          .substring(0, 2)}
+                        {(authType === 'vendor' ? userData?.brandName : userData?.name)
+                          ?.split(' ')
+                          ?.map(word => word.charAt(0))
+                          ?.join('')
+                          ?.toUpperCase()
+                          ?.substring(0, 2) || "V"}
                       </span>
                     ) : (
                       <User className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
                     )}
                   </div>
-                  {isLoggedIn && userData?.name && (
+                  {isLoggedIn && (authType === 'vendor' ? userData?.brandName : userData?.name) && (
                     <span className="hidden sm:inline text-xs sm:text-sm font-medium text-white truncate max-w-24">
-                      {userData.name}
+                      {authType === 'vendor' ? userData?.brandName : userData?.name}
                     </span>
                   )}
                 </button>
@@ -849,14 +865,14 @@ const handleHomeClick = () => {
                         <div className="px-4 py-3 border-b border-gray-100">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                              {userData.name ? (
+                              {(authType === 'vendor' ? userData?.brandName : userData?.name) ? (
                                 <span className="text-lg font-semibold text-amber-600">
-                                  {userData.name
-                                    .split(' ')
-                                    .map(word => word.charAt(0))
-                                    .join('')
-                                    .toUpperCase()
-                                    .substring(0, 2)}
+                                  {(authType === 'vendor' ? userData?.brandName : userData?.name)
+                                    ?.split(' ')
+                                    ?.map(word => word.charAt(0))
+                                    ?.join('')
+                                    ?.toUpperCase()
+                                    ?.substring(0, 2) || "V"}
                                 </span>
                               ) : (
                                 <User className="h-5 w-5 text-amber-600" />
@@ -864,28 +880,43 @@ const handleHomeClick = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">
-                                {userData.name || "User"}
+                                {authType === 'vendor' ? userData?.brandName || "Vendor" : userData?.name || "User"}
                               </p>
                               <p className="text-xs text-amber-600 font-medium truncate">
-                                {userData.vivId || "VIV ID"}
+                                {authType === 'vendor' ? userData?.vendorType || "Vendor" : userData?.vivId || "VIV ID"}
                               </p>
                             </div>
                           </div>
                         </div>
-                        <button
-                          onClick={handleViewProfile}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
-                        >
-                          <User className="h-4 w-4 text-amber-600" />
-                          View Profile
-                        </button>
-                        <button
-                          onClick={handleUpdateProfile}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
-                        >
-                          <Edit className="h-4 w-4 text-amber-600" />
-                          Update Profile
-                        </button>
+                        {authType === 'vendor' ? (
+                          <button
+                            onClick={() => {
+                              setIsProfileDropdownOpen(false);
+                              navigate("/wedding-shop/vendor/dashboard");
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
+                          >
+                            <User className="h-4 w-4 text-amber-600" />
+                            Dashboard
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={handleViewProfile}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
+                            >
+                              <User className="h-4 w-4 text-amber-600" />
+                              View Profile
+                            </button>
+                            <button
+                              onClick={handleUpdateProfile}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
+                            >
+                              <Edit className="h-4 w-4 text-amber-600" />
+                              Update Profile
+                            </button>
+                          </>
+                        )}
                         <div className="border-t border-gray-100 my-1"></div>
                         <button
                           onClick={handleLogout}
@@ -980,7 +1011,7 @@ const handleHomeClick = () => {
                 }}
                 className="w-full block py-2 px-3 text-gray-700 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200 font-medium text-left text-sm"
               >
-                Profile
+                {authType === 'vendor' ? 'Dashboard' : 'Profile'}
               </button>
             ) : (
               <>
