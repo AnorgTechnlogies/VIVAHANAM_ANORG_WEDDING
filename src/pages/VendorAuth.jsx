@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, Phone, MapPin, Briefcase, KeyRound, ArrowRight, ArrowLeft, Home, Store, Eye, EyeOff } from "lucide-react";  
+import { Mail, Lock, Phone, Briefcase, KeyRound, ArrowRight, ArrowLeft, Home, Store, Eye, EyeOff } from "lucide-react";  
 import useVendorNavigation from "../hooks/useVendorNavigation";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -28,8 +28,6 @@ export default function AuthPage() {
     mobile: "",
     password: "",
     confirmPassword: "",
-    city: "",
-    vendorType: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -54,8 +52,6 @@ export default function AuthPage() {
       if (!form.brandName) newErrors.brandName = "Brand name is required";
       if (!form.mobile) newErrors.mobile = "Mobile number is required";
       else if (!/^\d{10}$/.test(form.mobile)) newErrors.mobile = "Mobile must be 10 digits";
-      if (!form.city) newErrors.city = "City is required";
-      if (!form.vendorType) newErrors.vendorType = "Vendor type is required";
       if (form.password !== form.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
     }
     
@@ -126,8 +122,6 @@ export default function AuthPage() {
         mobile: "",
         password: "",
         confirmPassword: "",
-        city: "",
-        vendorType: "",
       });
     } catch (err) {
       alert(err.message || "Register Error");
@@ -461,40 +455,6 @@ export default function AuthPage() {
                           className={`w-full pl-11 pr-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.mobile ? 'border-red-500' : 'border-gray-200'}`}
                         />
                         {errors.mobile && <p className="text-red-500 text-xs mt-1 ml-2">{errors.mobile}</p>}
-                      </div>
-
-                      <div className="relative group">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-rose-500 transition-colors" size={18} />
-                        <input 
-                          name="city" 
-                          placeholder="City" 
-                          value={form.city}
-                          onChange={handleChange} 
-                          className={`w-full pl-11 pr-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.city ? 'border-red-500' : 'border-gray-200'}`}
-                        />
-                        {errors.city && <p className="text-red-500 text-xs mt-1 ml-2">{errors.city}</p>}
-                      </div>
-                      
-                      <div className="relative group">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-rose-500 transition-colors" size={18} />
-                        <select 
-                          name="vendorType" 
-                          value={form.vendorType}
-                          onChange={handleChange} 
-                          className={`w-full pl-11 pr-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 appearance-none ${errors.vendorType ? 'border-red-500' : 'border-gray-200'}`}
-                        >
-                          <option value="">Select Vendor Type</option>
-                          <option value="Photographer">Photographer</option>
-                          <option value="Catering">Catering</option>
-                          <option value="Venue">Venue</option>
-                          <option value="Makeup Artist">Makeup Artist</option>
-                          <option value="Planning and Decor">Planning and Decor</option>
-                          <option value="Music and Dance">Music and Dance</option>
-                          <option value="Food">Food</option>
-                          <option value="Bridal Wear">Bridal Wear</option>
-                          <option value="Groom Wear">Groom Wear</option>
-                        </select>
-                        {errors.vendorType && <p className="text-red-500 text-xs mt-1 ml-2">{errors.vendorType}</p>}
                       </div>
 
                       <div className="relative group">

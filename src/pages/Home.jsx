@@ -44,7 +44,7 @@ const Home = () => {
           { name: "Venues", image: "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=600&auto=format&fit=crop" },
           { name: "Photographers", image: "https://images.unsplash.com/photo-1606800052052-a08af7148866?q=80&w=600&auto=format&fit=crop" },
           { name: "Makeup", image: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?q=80&w=600&auto=format&fit=crop" },
-          { name: "Bridal Wear", image: "https://images.unsplash.com/photo-1596450514735-111a2fe02935?q=80&w=600&auto=format&fit=crop" },
+          { name: "Bridal Wear", image: "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=600&auto=format&fit=crop"},
           { name: "Decorators", image: "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=600&auto=format&fit=crop" },
           { name: "Mehndi", image: "https://images.unsplash.com/photo-1583097148529-57e05fc86bc9?q=80&w=600&auto=format&fit=crop" },
         ];

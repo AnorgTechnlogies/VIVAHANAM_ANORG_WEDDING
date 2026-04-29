@@ -7,6 +7,8 @@ import VendorDetails from "./pages/VendorDetails";
 import VendorRegister from "./pages/VendorRegister";
 import VendorAuth from "./pages/VendorAuth";
 import VendorDashboard from "./pages/VendorDashboard";
+import MyEnquiries from "./pages/MyEnquiries";
+import MyShortlist from "./pages/MyShortlist";
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
           <Route path="/wedding-shop/vendor-auth" element={<VendorAuth />} />
           <Route path="/wedding-shop/vendor-register" element={<VendorRegister />} />
           <Route path="/wedding-shop/vendor/dashboard" element={<VendorDashboard />} />
+          <Route path="/wedding-shop/my-enquiries" element={<MyEnquiries />} />
+          <Route path="/wedding-shop/my-shortlist" element={<MyShortlist />} />
           <Route path="/shops" element={<Navigate to="/wedding-shop" replace />} />
           <Route path="/" element={<Navigate to="/wedding-shop" replace />} />
         </Routes>

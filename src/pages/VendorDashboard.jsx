@@ -45,6 +45,9 @@ export default function VendorDashboard() {
   const [editableFormData, setEditableFormData] = useState({});
   const [savingForm, setSavingForm] = useState(false);
 
+  const [enquiries, setEnquiries] = useState([]);
+  const [loadingEnquiries, setLoadingEnquiries] = useState(false);
+
   useEffect(() => {
     const fetchVendorData = async () => {
       const token = localStorage.getItem("vendorToken");
@@ -80,6 +83,30 @@ export default function VendorDashboard() {
     }
     setIsEditingForm(false);
   }, [vendor]);
+
+  useEffect(() => {
+    const fetchEnquiries = async () => {
+      if (activeTab !== "enquiries") return;
+      const token = localStorage.getItem("vendorToken");
+      if (!token) return;
+
+      setLoadingEnquiries(true);
+      try {
+        const res = await fetch(`${API_URL}/vendors/vendor-dashboard/enquiries`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.success) {
+          setEnquiries(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch enquiries", err);
+      } finally {
+        setLoadingEnquiries(false);
+      }
+    };
+    fetchEnquiries();
+  }, [activeTab]);
 
   useEffect(() => {
     setProfileForm({
@@ -246,16 +273,16 @@ export default function VendorDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="h-32 bg-gradient-to-r from-amber-600 to-red-600" />
+        <div className="h-25 bg-gradient-to-r from-amber-600 to-red-600" />
         <div className="px-6 sm:px-10 pb-8 relative">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between">
             <div className="flex items-center sm:items-end -mt-12 sm:-mt-16 mb-4 sm:mb-0 gap-4 sm:gap-6 flex-col sm:flex-row">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 bg-white rounded-full p-2 shadow-lg">
+              <div className="w-20 h-20 sm:w-32 sm:h-32 bg-white rounded-full p-2 shadow-lg">
                 <div className="w-full h-full bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-3xl sm:text-4xl font-bold">
                   {(vendor.brandName || "V").charAt(0).toUpperCase()}
                 </div>
               </div>
-              <div className="text-center sm:text-left mb-2">
+              <div className="text-center sm:text-left ">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{vendor.brandName || "Vendor"}</h1>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2 text-sm text-gray-600">
                   <span className="flex items-center gap-1">
@@ -293,6 +320,7 @@ export default function VendorDashboard() {
                 { id: "profile", label: "My Profile", icon: User },
                 { id: "submission", label: "Submitted Form", icon: FileText },
                 { id: "documents", label: "Documents", icon: FileText },
+                { id: "enquiries", label: "Leads & Enquiries", icon: Briefcase },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
@@ -487,6 +515,103 @@ export default function VendorDashboard() {
                       </div>
                       <span className="text-sm text-amber-700 font-medium">View</span>
                     </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "enquiries" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-6">Leads & Enquiries</h3>
+              {loadingEnquiries ? (
+                <div className="text-sm text-gray-500 py-10 text-center">Loading enquiries...</div>
+              ) : enquiries.length === 0 ? (
+                <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <div className="text-4xl mb-4">📨</div>
+                  <h4 className="text-lg font-medium text-gray-900">No leads yet</h4>
+                  <p className="text-sm text-gray-500 mt-1">When users enquire about your services, they will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {enquiries.map((enq) => (
+                    <div key={enq._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow bg-white">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg border border-amber-100">
+                            {(enq.name || "U")[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900">{enq.name}</h4>
+                            <div className="text-sm text-gray-500 flex flex-wrap gap-x-4 mt-1">
+                              <span>📞 {enq.phone}</span>
+                              {enq.email && <span>✉️ {enq.email}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            enq.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                            enq.status === 'viewed' ? 'bg-amber-100 text-amber-700' :
+                            enq.status === 'booked' ? 'bg-purple-100 text-purple-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {enq.status.charAt(0).toUpperCase() + enq.status.slice(1)}
+                          </span>
+                          <div className="text-xs text-gray-400 mt-2">
+                            {new Date(enq.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* User's Registered Profile Info */}
+                      {enq.userId && (
+                        <div className="mb-4 flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg p-2.5">
+                          <img 
+                            src={enq.userId.profileImage?.startsWith("http") ? enq.userId.profileImage : (enq.userId.profileImage ? `${API_ORIGIN}${enq.userId.profileImage}` : "https://cdn-icons-png.flaticon.com/512/149/149071.png")} 
+                            alt="User Profile" 
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                          <div className="text-xs text-gray-600">
+                            <span className="font-semibold">Registered Account:</span> {enq.userId.name} {enq.userId.email && `(${enq.userId.email})`}
+                          </div>
+                        </div>
+                      )}
+
+                      {!enq.contactViewed ? (
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                          <div className="flex flex-wrap gap-x-6 gap-y-2 mb-3 text-sm">
+                            <div>
+                              <span className="text-gray-500">Event:</span>{" "}
+                              <span className="font-medium text-gray-900 capitalize">{enq.eventType || "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Date:</span>{" "}
+                              <span className="font-medium text-gray-900">
+                                {enq.eventDate ? new Date(enq.eventDate).toLocaleDateString() : "N/A"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Guests:</span>{" "}
+                              <span className="font-medium text-gray-900">{enq.guestCount || "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Budget:</span>{" "}
+                              <span className="font-medium text-gray-900">{enq.budget || "N/A"}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Message</span>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{enq.message || "No message provided."}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-amber-50 rounded-lg p-3 border border-amber-100 text-sm text-amber-800 flex items-center gap-2">
+                          <span className="text-lg">👀</span>
+                          User viewed your contact details. Reach out to them!
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

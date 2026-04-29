@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
+const FORM_KEY = "vendor_onboarding";
 
 const SearchBar = ({ onSearch }) => {
   const [categories, setCategories] = useState([]);
@@ -13,13 +14,54 @@ const SearchBar = ({ onSearch }) => {
   useEffect(() => {
     const fetchMasters = async () => {
       try {
-        const [catRes, locRes] = await Promise.all([
-          fetch(`${API_BASE}/categories`),
-          fetch(`${API_BASE}/locations/states`),
-        ]);
-        const [catData, locData] = await Promise.all([catRes.json(), locRes.json()]);
-        setCategories(catData?.data || []);
-        setLocations(locData?.data || []);
+        const formRes = await fetch(`${API_BASE}/marketplace/forms/${FORM_KEY}/config`);
+        const formData = await formRes.json().catch(() => ({}));
+
+        const sections = formData?.data?.sections || [];
+        const categoryField = sections
+          .flatMap((section) => section?.fields || [])
+          .find((field) => field?.key === "category");
+        const configLocations = formData?.data?.locations || [];
+
+        const categoryOptions = (categoryField?.options || []).map((option) => ({
+          value: option?.value || option?.label || "",
+          label: option?.label || option?.value || "",
+        })).filter((option) => option.value && option.label);
+
+        const locationMap = new Map();
+        configLocations.forEach((stateItem) => {
+          const stateName = stateItem?.state?.trim();
+          if (stateName) {
+            locationMap.set(`state-${stateName.toLowerCase()}`, {
+              value: stateName,
+              label: stateName,
+            });
+          }
+
+          (stateItem?.cities || []).forEach((city) => {
+            const cityName = city?.trim();
+            if (!cityName) return;
+            locationMap.set(`city-${cityName.toLowerCase()}`, {
+              value: cityName,
+              label: `${cityName}${stateName ? `, ${stateName}` : ""}`,
+            });
+          });
+        });
+
+        if (categoryOptions.length > 0) {
+          setCategories(categoryOptions);
+        } else {
+          const catRes = await fetch(`${API_BASE}/categories`);
+          const catData = await catRes.json().catch(() => ({}));
+          setCategories(
+            (catData?.data || []).map((item) => ({
+              value: item?.value || item?.name || item?.label || "",
+              label: item?.label || item?.name || item?.value || "",
+            })).filter((item) => item.value && item.label)
+          );
+        }
+
+        setLocations(Array.from(locationMap.values()));
       } catch (error) {
         console.error("Failed to load search filters", error);
       }
@@ -43,8 +85,8 @@ const SearchBar = ({ onSearch }) => {
         >
           <option key="" value="" className="text-gray-500">All Vendor Types</option>
           {categories.map((item) => (
-            <option key={item._id || item.name} value={item.name} className="text-gray-900">
-              {item.label || item.name}
+            <option key={item.value} value={item.value} className="text-gray-900">
+              {item.label}
             </option>
           ))}
         </select>
