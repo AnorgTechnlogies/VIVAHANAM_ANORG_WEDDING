@@ -1,158 +1,116 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Briefcase, FileText, LogOut, MapPin, User } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 const FORM_KEY = "vendor_onboarding";
 
-const STATUS_META = {
-  approved: { label: "Approved", badge: "bg-green-100 text-green-700" },
-  rejected: { label: "Rejected", badge: "bg-red-100 text-red-700" },
-  submitted: { label: "Under Review", badge: "bg-amber-100 text-amber-700" },
-  draft: { label: "Draft", badge: "bg-gray-100 text-gray-700" },
+const STATUS = {
+  approved: { label: "Approved", color: "#16a34a", bg: "#f0fdf4" },
+  rejected: { label: "Rejected", color: "#dc2626", bg: "#fef2f2" },
+  submitted: { label: "Under Review", color: "#d97706", bg: "#fffbeb" },
+  draft:    { label: "Draft", color: "#6b7280", bg: "#f9fafb" },
 };
 
-const toTitle = (value = "") =>
-  value
-    .toString()
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (s) => s.toUpperCase());
+const toTitle = (v = "") =>
+  v.toString().replace(/_/g, " ").trim().replace(/\b\w/g, (s) => s.toUpperCase());
 
-const formatValue = (value) => {
-  if (value === null || value === undefined || value === "") return "-";
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
+const fmt = (v) => {
+  if (v === null || v === undefined || v === "") return "—";
+  if (Array.isArray(v)) return v.join(", ");
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
 };
+
+const TABS = [
+  { id: "overview",   label: "Overview" },
+  { id: "profile",    label: "Profile" },
+  { id: "submission", label: "Form" },
+  { id: "documents",  label: "Documents" },
+  { id: "enquiries",  label: "Enquiries" },
+];
 
 export default function VendorDashboard() {
   const navigate = useNavigate();
-  const [vendor, setVendor] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-    brandName: "",
-    mobile: "",
-    city: "",
-    vendorType: "",
-  });
-  const [isEditingForm, setIsEditingForm] = useState(false);
-  const [editableFormData, setEditableFormData] = useState({});
-  const [savingForm, setSavingForm] = useState(false);
+  const [vendor, setVendor]           = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [tab, setTab]                 = useState("overview");
 
-  const [enquiries, setEnquiries] = useState([]);
-  const [loadingEnquiries, setLoadingEnquiries] = useState(false);
+  const [editProfile, setEditProfile] = useState(false);
+  const [savingP, setSavingP]         = useState(false);
+  const [pForm, setPForm]             = useState({ brandName:"", mobile:"", city:"", vendorType:"" });
 
+  const [editForm, setEditForm]       = useState(false);
+  const [formData, setFormData]       = useState({});
+  const [savingF, setSavingF]         = useState(false);
+
+  const [enquiries, setEnquiries]     = useState([]);
+  const [loadingE, setLoadingE]       = useState(false);
+
+  /* fetch vendor */
   useEffect(() => {
-    const fetchVendorData = async () => {
+    (async () => {
       const token = localStorage.getItem("vendorToken");
-      if (!token) {
-        navigate("/wedding-shop/vendor-auth");
-        return;
-      }
-
+      if (!token) { navigate("/wedding-shop/vendor-auth"); return; }
       try {
-        const res = await fetch(`${API_URL}/vendor/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok || !data?.success) throw new Error(data?.message || "Session expired");
-        setVendor(data.data);
-      } catch (err) {
+        const r = await fetch(`${API_URL}/vendor/me`, { headers: { Authorization: `Bearer ${token}` } });
+        const d = await r.json();
+        if (!r.ok || !d?.success) throw new Error();
+        setVendor(d.data);
+      } catch {
         localStorage.removeItem("vendorToken");
-        localStorage.removeItem("vendorData");
         navigate("/wedding-shop/vendor-auth");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchVendorData();
+      } finally { setLoading(false); }
+    })();
   }, [navigate]);
 
   useEffect(() => {
-    const initial = vendor?.submission?.data;
-    if (initial && typeof initial === "object") {
-      setEditableFormData(initial);
-    } else {
-      setEditableFormData({});
-    }
-    setIsEditingForm(false);
+    if (!vendor) return;
+    setPForm({ brandName: vendor.brandName||"", mobile: vendor.mobile||"", city: vendor.city||"", vendorType: vendor.vendorType||"" });
+    setFormData(vendor?.submission?.data && typeof vendor.submission.data === "object" ? vendor.submission.data : {});
   }, [vendor]);
 
+  /* fetch enquiries */
   useEffect(() => {
-    const fetchEnquiries = async () => {
-      if (activeTab !== "enquiries") return;
-      const token = localStorage.getItem("vendorToken");
-      if (!token) return;
+    if (tab !== "enquiries") return;
+    const token = localStorage.getItem("vendorToken");
+    if (!token) return;
+    setLoadingE(true);
+    fetch(`${API_URL}/vendors/vendor-dashboard/enquiries`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { if (d.success) setEnquiries(d.data); })
+      .catch(console.error).finally(() => setLoadingE(false));
+  }, [tab]);
 
-      setLoadingEnquiries(true);
-      try {
-        const res = await fetch(`${API_URL}/vendors/vendor-dashboard/enquiries`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (data.success) {
-          setEnquiries(data.data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch enquiries", err);
-      } finally {
-        setLoadingEnquiries(false);
-      }
-    };
-    fetchEnquiries();
-  }, [activeTab]);
+  const profileFields = useMemo(() => !vendor ? [] : [
+    { key:"brandName",  label:"Brand Name",   value: vendor.brandName,   editable: true },
+    { key:"vendorType", label:"Vendor Type",   value: vendor.vendorType,  editable: true },
+    { key:"email",      label:"Email",         value: vendor.email,       editable: false },
+    { key:"mobile",     label:"Mobile",        value: vendor.mobile,      editable: true },
+    { key:"city",       label:"City",          value: vendor.city,        editable: true },
+    { key:"createdAt",  label:"Joined On",     value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", editable: false },
+  ], [vendor]);
 
-  useEffect(() => {
-    setProfileForm({
-      brandName: vendor?.brandName || "",
-      mobile: vendor?.mobile || "",
-      city: vendor?.city || "",
-      vendorType: vendor?.vendorType || "",
-    });
-    setIsEditingProfile(false);
+  const subEntries = useMemo(() => {
+    const p = editForm ? formData : vendor?.submission?.data;
+    if (!p || typeof p !== "object") return [];
+    return Object.entries(p).map(([k, v]) => ({ key: k, label: toTitle(k), value: fmt(v) }));
+  }, [vendor, formData, editForm]);
+
+  const docFiles = useMemo(() => {
+    const f = vendor?.submission?.uploadedFiles;
+    if (!f || typeof f !== "object") return [];
+    return Object.entries(f).flatMap(([fk, vals]) =>
+      Array.isArray(vals) ? vals.map((file, i) => ({
+        id: `${fk}-${i}`, fieldKey: fk, name: file?.name || `File ${i+1}`,
+        url: file?.url?.startsWith("http") ? file.url : `${API_ORIGIN}${file?.url||""}`,
+      })) : []
+    );
   }, [vendor]);
 
-  const profileFields = useMemo(() => {
-    if (!vendor) return [];
-    return [
-      { label: "Brand Name", value: vendor.brandName },
-      { label: "Vendor Type", value: vendor.vendorType },
-      { label: "Email", value: vendor.email },
-      { label: "Mobile", value: vendor.mobile },
-      { label: "City", value: vendor.city },
-      { label: "Joined On", value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "-" },
-    ];
-  }, [vendor]);
-
-  const submissionEntries = useMemo(() => {
-    const payload = isEditingForm ? editableFormData : vendor?.submission?.data;
-    if (!payload || typeof payload !== "object") return [];
-    return Object.entries(payload).map(([key, value]) => ({
-      key,
-      label: toTitle(key),
-      value: formatValue(value),
-    }));
-  }, [vendor, editableFormData, isEditingForm]);
-
-  const uploadedFiles = useMemo(() => {
-    const files = vendor?.submission?.uploadedFiles;
-    if (!files || typeof files !== "object") return [];
-    return Object.entries(files).flatMap(([fieldKey, values]) => {
-      if (!Array.isArray(values)) return [];
-      return values.map((file, idx) => ({
-        id: `${fieldKey}-${idx}`,
-        fieldKey,
-        name: file?.name || `File ${idx + 1}`,
-        url: file?.url?.startsWith("http") ? file.url : `${API_ORIGIN}${file?.url || ""}`,
-      }));
-    });
-  }, [vendor]);
+  const completion = useMemo(() => {
+    const filled = profileFields.filter(f => f.value && f.value !== "—").length;
+    return Math.round((filled / Math.max(profileFields.length, 1)) * 100);
+  }, [profileFields]);
 
   const handleLogout = () => {
     localStorage.removeItem("vendorToken");
@@ -160,465 +118,336 @@ export default function VendorDashboard() {
     navigate("/");
   };
 
-  const handleFieldEdit = (key, nextValue) => {
-    setEditableFormData((prev) => ({ ...prev, [key]: nextValue }));
-  };
-
-  const handleProfileFieldChange = (key, value) => {
-    setProfileForm((prev) => ({ ...prev, [key]: value }));
-  };
-
   const handleSaveProfile = async () => {
     const token = localStorage.getItem("vendorToken");
-    if (!token) {
-      alert("Session expired. Please login again.");
-      navigate("/wedding-shop/vendor-auth");
-      return;
-    }
-    setSavingProfile(true);
+    setSavingP(true);
     try {
-      const res = await fetch(`${API_URL}/vendor/me`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(profileForm),
+      const r = await fetch(`${API_URL}/vendor/me`, {
+        method:"PUT", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body: JSON.stringify(pForm),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.success) throw new Error(data?.message || "Failed to update profile");
-      setVendor(data.data);
-      localStorage.setItem("vendorData", JSON.stringify(data.data || {}));
-      setIsEditingProfile(false);
-      alert("Profile updated successfully.");
-    } catch (error) {
-      alert(error.message || "Unable to update profile");
-    } finally {
-      setSavingProfile(false);
-    }
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d?.success) throw new Error(d?.message || "Failed");
+      setVendor(d.data);
+      localStorage.setItem("vendorData", JSON.stringify(d.data||{}));
+      setEditProfile(false);
+    } catch(e) { alert(e.message); } finally { setSavingP(false); }
   };
 
-  const handleSaveFormUpdate = async () => {
+  const handleSaveForm = async () => {
     const token = localStorage.getItem("vendorToken");
-    if (!token) {
-      alert("Session expired. Please login again.");
-      navigate("/wedding-shop/vendor-auth");
-      return;
-    }
-
-    setSavingForm(true);
+    setSavingF(true);
     try {
-      const saveRes = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/draft`, {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          data: editableFormData,
-          uploadedFiles: vendor?.submission?.uploadedFiles || {},
-        }),
+      const body = { data: formData, uploadedFiles: vendor?.submission?.uploadedFiles || {} };
+      const r1 = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/draft`, {
+        method:"PUT", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body:JSON.stringify(body),
       });
-      const saveData = await saveRes.json().catch(() => ({}));
-      if (!saveRes.ok) throw new Error(saveData?.message || "Failed to save update");
-
-      const submitRes = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/submit`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          data: editableFormData,
-          uploadedFiles: vendor?.submission?.uploadedFiles || {},
-        }),
+      if (!r1.ok) throw new Error((await r1.json().catch(()=>({}))).message || "Failed to save");
+      const r2 = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/submit`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body:JSON.stringify(body),
       });
-      const submitData = await submitRes.json().catch(() => ({}));
-      if (!submitRes.ok) throw new Error(submitData?.message || "Failed to submit updated form");
-
-      setVendor((prev) => ({
-        ...prev,
-        submission: {
-          ...(prev?.submission || {}),
-          data: editableFormData,
-          uploadedFiles: prev?.submission?.uploadedFiles || {},
-          status: "submitted",
-        },
-        registrationStatus: "submitted",
-      }));
-      setIsEditingForm(false);
-      alert("Form updated successfully.");
-    } catch (error) {
-      alert(error.message || "Unable to update form");
-    } finally {
-      setSavingForm(false);
-    }
+      if (!r2.ok) throw new Error((await r2.json().catch(()=>({}))).message || "Failed to submit");
+      setVendor(p => ({ ...p, submission: { ...p?.submission, data: formData, status:"submitted" }, registrationStatus:"submitted" }));
+      setEditForm(false);
+    } catch(e) { alert(e.message); } finally { setSavingF(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-600" />
-      </div>
-    );
-  }
-
+  /* ── Loading ── */
+  if (loading) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#fafaf8"}}>
+      <div style={{width:32,height:32,border:"2.5px solid #e5e7eb",borderTopColor:"#c2894b",borderRadius:"50%",animation:"spin .7s linear infinite"}} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
   if (!vendor) return null;
 
   const status = vendor.registrationStatus || "draft";
-  const statusMeta = STATUS_META[status] || STATUS_META.draft;
-  const completionBase = profileFields.filter((item) => item.value && item.value !== "-").length;
-  const profileCompletion = Math.round((completionBase / profileFields.length) * 100);
+  const sMeta  = STATUS[status] || STATUS.draft;
+  const initial = (vendor.brandName || "V").charAt(0).toUpperCase();
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="h-25 bg-gradient-to-r from-amber-600 to-red-600" />
-        <div className="px-6 sm:px-10 pb-8 relative">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between">
-            <div className="flex items-center sm:items-end -mt-12 sm:-mt-16 mb-4 sm:mb-0 gap-4 sm:gap-6 flex-col sm:flex-row">
-              <div className="w-20 h-20 sm:w-32 sm:h-32 bg-white rounded-full p-2 shadow-lg">
-                <div className="w-full h-full bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-3xl sm:text-4xl font-bold">
-                  {(vendor.brandName || "V").charAt(0).toUpperCase()}
-                </div>
-              </div>
-              <div className="text-center sm:text-left ">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{vendor.brandName || "Vendor"}</h1>
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2 text-sm text-gray-600">
-                  <span className="flex items-center gap-1">
-                    <Briefcase className="w-4 h-4 text-amber-600" />
-                    {vendor.vendorType || "-"}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4 text-amber-600" />
-                    {vendor.city || "-"}
-                  </span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusMeta.badge}`}>
-                    {statusMeta.label}
-                  </span>
-                </div>
-              </div>
-            </div>
+    <div style={{minHeight:"100vh",background:"#fafaf8",fontFamily:"'Inter',system-ui,sans-serif",color:"#1a1a1a"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .vd-tab{border:none;cursor:pointer;transition:all .15s;background:transparent}
+        .vd-tab:hover{color:#c2894b!important}
+        .vd-btn{border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;padding:8px 16px;transition:opacity .15s}
+        .vd-btn:hover{opacity:.85}
+        .vd-input{width:100%;font-family:inherit;font-size:14px;padding:9px 13px;border:1.5px solid #e5e7eb;border-radius:8px;outline:none;box-sizing:border-box;background:#fff;color:#1a1a1a;transition:border-color .15s}
+        .vd-input:focus{border-color:#c2894b}
+        .vd-row:hover{background:#fdf8f3!important}
+        .vd-enq:hover{border-color:#e8d5bc!important}
+      `}</style>
 
-            <button
-              onClick={handleLogout}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg font-medium hover:bg-red-100 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
+      {/* ── Top bar ── */}
+      <div style={{background:"#fff",borderBottom:"1px solid #f0ede8",padding:"0 32px",display:"flex",alignItems:"center",justifyContent:"space-between",height:60,position:"sticky",top:0,zIndex:10,gap:16}}>
+        {/* Brand */}
+        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#c2894b,#8b5e3c)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:600,fontSize:14}}>
+            {initial}
           </div>
+          <div>
+            <div style={{fontWeight:600,fontSize:14,lineHeight:1.2}}>{vendor.brandName || "Vendor"}</div>
+            <div style={{fontSize:11,color:"#9ca3af"}}>{vendor.vendorType || "—"}</div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:2}}>
+          {TABS.map(t => (
+            <button key={t.id} className="vd-tab"
+              onClick={() => setTab(t.id)}
+              style={{
+                padding:"6px 14px",borderRadius:8,fontSize:13,
+                fontWeight: tab===t.id ? 600 : 400,
+                color: tab===t.id ? "#c2894b" : "#6b7280",
+                background: tab===t.id ? "#fdf8f3" : "transparent",
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Right side */}
+        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <span style={{fontSize:12,fontWeight:600,padding:"4px 10px",borderRadius:20,background:sMeta.bg,color:sMeta.color}}>
+            {sMeta.label}
+          </span>
+          <button className="vd-btn" onClick={handleLogout}
+            style={{background:"#fef2f2",color:"#dc2626"}}>
+            Logout
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-28">
-            <nav className="flex flex-col p-4 space-y-1">
+      {/* ── Page body ── */}
+      <div style={{maxWidth:860,margin:"0 auto",padding:"28px 20px"}}>
+
+        {/* ── OVERVIEW ── */}
+        {tab === "overview" && (
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
               {[
-                { id: "overview", label: "Overview", icon: User },
-                { id: "profile", label: "My Profile", icon: User },
-                { id: "submission", label: "Submitted Form", icon: FileText },
-                { id: "documents", label: "Documents", icon: FileText },
-                { id: "enquiries", label: "Leads & Enquiries", icon: Briefcase },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
-                      activeTab === item.id ? "bg-amber-50 text-amber-700" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-
-        <div className="lg:col-span-3 space-y-6">
-          {activeTab === "overview" && (
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl border border-gray-100 p-5">
-                <div className="text-xs text-gray-500 mb-1">Registration Status</div>
-                <div className="text-xl font-bold text-gray-900">{statusMeta.label}</div>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-100 p-5">
-                <div className="text-xs text-gray-500 mb-1">Profile Completion</div>
-                <div className="text-xl font-bold text-gray-900">{profileCompletion}%</div>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-100 p-5">
-                <div className="text-xs text-gray-500 mb-1">Submitted Fields</div>
-                <div className="text-xl font-bold text-gray-900">{submissionEntries.length}</div>
-              </div>
+                { label:"Status",       value: sMeta.label },
+                { label:"Completion",   value:`${completion}%`, progress:true },
+                { label:"Form Fields",  value: subEntries.length },
+                { label:"Documents",    value: docFiles.length },
+              ].map(s => (
+                <div key={s.label} style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"16px 18px"}}>
+                  <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{s.label}</div>
+                  <div style={{fontSize:22,fontWeight:600,color:"#1a1a1a",letterSpacing:"-.02em"}}>{s.value}</div>
+                  {s.progress && (
+                    <div style={{marginTop:8,height:3,borderRadius:2,background:"#f3f4f6"}}>
+                      <div style={{height:"100%",width:`${completion}%`,borderRadius:2,background:"#c2894b"}} />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
 
-          {activeTab === "profile" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between gap-3 mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Vendor Profile</h3>
-                {!isEditingProfile ? (
-                  <button
-                    onClick={() => setIsEditingProfile(true)}
-                    className="px-4 py-2 rounded-lg border border-amber-600 text-amber-700 hover:bg-amber-50"
-                  >
-                    Edit Profile
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setIsEditingProfile(false);
-                        setProfileForm({
-                          brandName: vendor?.brandName || "",
-                          mobile: vendor?.mobile || "",
-                          city: vendor?.city || "",
-                          vendorType: vendor?.vendorType || "",
-                        });
-                      }}
-                      className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-                      disabled={savingProfile}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveProfile}
-                      className="px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-                      disabled={savingProfile}
-                    >
-                      {savingProfile ? "Saving..." : "Save Profile"}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                {profileFields.map((item) => (
-                  <div key={item.label}>
-                    <div className="text-sm text-gray-500 mb-1">{item.label}</div>
-                    {isEditingProfile && item.label !== "Email" && item.label !== "Joined On" ? (
-                      <input
-                        type="text"
-                        value={
-                          item.label === "Brand Name"
-                            ? profileForm.brandName
-                            : item.label === "Vendor Type"
-                            ? profileForm.vendorType
-                            : item.label === "Mobile"
-                            ? profileForm.mobile
-                            : profileForm.city
-                        }
-                        onChange={(e) => {
-                          if (item.label === "Brand Name") handleProfileFieldChange("brandName", e.target.value);
-                          else if (item.label === "Vendor Type") handleProfileFieldChange("vendorType", e.target.value);
-                          else if (item.label === "Mobile") handleProfileFieldChange("mobile", e.target.value);
-                          else handleProfileFieldChange("city", e.target.value);
-                        }}
-                        className="w-full bg-white border border-gray-300 rounded-lg p-3 text-gray-900"
-                      />
-                    ) : (
-                      <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 font-medium text-gray-900">
-                        {item.value || "-"}
-                      </div>
-                    )}
+            <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"20px 22px"}}>
+              <div style={{fontWeight:600,fontSize:14,marginBottom:14,color:"#1a1a1a"}}>Profile Summary</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+                {profileFields.map(f => (
+                  <div key={f.key}>
+                    <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>{f.label}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a"}}>{f.value||"—"}</div>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {activeTab === "submission" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between gap-3 mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Submitted Registration Data</h3>
-                {submissionEntries.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    {!isEditingForm ? (
-                      <button
-                        onClick={() => setIsEditingForm(true)}
-                        className="px-4 py-2 rounded-lg border border-amber-600 text-amber-700 hover:bg-amber-50"
-                      >
-                        Edit Form
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => {
-                            setIsEditingForm(false);
-                            setEditableFormData(vendor?.submission?.data || {});
-                          }}
-                          className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-                          disabled={savingForm}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveFormUpdate}
-                          className="px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-                          disabled={savingForm}
-                        >
-                          {savingForm ? "Saving..." : "Save & Update"}
-                        </button>
-                      </>
-                    )}
+        {/* ── PROFILE ── */}
+        {tab === "profile" && (
+          <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+              <div style={{fontWeight:600,fontSize:14}}>My Profile</div>
+              {!editProfile
+                ? <button className="vd-btn" onClick={() => setEditProfile(true)} style={{background:"#fdf8f3",color:"#c2894b",border:"1px solid #e8d5bc"}}>Edit</button>
+                : <div style={{display:"flex",gap:8}}>
+                    <button className="vd-btn" style={{background:"#f9fafb",color:"#6b7280"}} disabled={savingP}
+                      onClick={() => { setEditProfile(false); setPForm({brandName:vendor.brandName||"",mobile:vendor.mobile||"",city:vendor.city||"",vendorType:vendor.vendorType||""}); }}>
+                      Cancel
+                    </button>
+                    <button className="vd-btn" onClick={handleSaveProfile} disabled={savingP}
+                      style={{background:"#c2894b",color:"#fff"}}>
+                      {savingP ? "Saving…" : "Save"}
+                    </button>
                   </div>
-                )}
-              </div>
-              {submissionEntries.length === 0 ? (
-                <div className="text-sm text-gray-500">No submitted form data found yet.</div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {submissionEntries.map((item) => (
-                    <div key={item.key}>
-                      <div className="text-sm text-gray-500 mb-1">{item.label}</div>
-                      {isEditingForm ? (
-                        <input
-                          type="text"
-                          value={editableFormData[item.key] ?? ""}
-                          onChange={(e) => handleFieldEdit(item.key, e.target.value)}
-                          className="w-full bg-white border border-gray-300 rounded-lg p-3 text-gray-900"
-                        />
-                      ) : (
-                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-gray-900">
-                          {item.value}
-                        </div>
-                      )}
+              }
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
+              {profileFields.map(f => (
+                <div key={f.key}>
+                  <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{f.label}</div>
+                  {editProfile && f.editable
+                    ? <input className="vd-input" value={pForm[f.key]||""} onChange={e => setPForm(p=>({...p,[f.key]:e.target.value}))} />
+                    : <div style={{fontSize:13,color:"#1a1a1a",fontWeight:500,padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{f.value||"—"}</div>
+                  }
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── SUBMISSION ── */}
+        {tab === "submission" && (
+          <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+              <div style={{fontWeight:600,fontSize:14}}>Submitted Form</div>
+              {subEntries.length > 0 && (
+                !editForm
+                  ? <button className="vd-btn" onClick={() => setEditForm(true)} style={{background:"#fdf8f3",color:"#c2894b",border:"1px solid #e8d5bc"}}>Edit</button>
+                  : <div style={{display:"flex",gap:8}}>
+                      <button className="vd-btn" style={{background:"#f9fafb",color:"#6b7280"}} disabled={savingF}
+                        onClick={() => { setEditForm(false); setFormData(vendor?.submission?.data||{}); }}>Cancel</button>
+                      <button className="vd-btn" onClick={handleSaveForm} disabled={savingF}
+                        style={{background:"#c2894b",color:"#fff"}}>{savingF ? "Saving…" : "Save"}</button>
+                    </div>
+              )}
+            </div>
+            {subEntries.length === 0
+              ? <Empty icon="📋" text="No form data submitted yet." />
+              : <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
+                  {subEntries.map(e => (
+                    <div key={e.key}>
+                      <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{e.label}</div>
+                      {editForm
+                        ? <input className="vd-input" value={formData[e.key]??""} onChange={ev => setFormData(p=>({...p,[e.key]:ev.target.value}))} />
+                        : <div style={{fontSize:13,color:"#1a1a1a",fontWeight:500,padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{e.value}</div>
+                      }
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+            }
+          </div>
+        )}
 
-          {activeTab === "documents" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Uploaded Documents</h3>
-              {uploadedFiles.length === 0 ? (
-                <div className="text-sm text-gray-500">No documents uploaded yet.</div>
-              ) : (
-                <div className="space-y-3">
-                  {uploadedFiles.map((file) => (
-                    <a
-                      key={file.id}
-                      href={file.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                    >
-                      <div>
-                        <div className="font-medium text-gray-900">{file.name}</div>
-                        <div className="text-xs text-gray-500">Field: {toTitle(file.fieldKey)}</div>
+        {/* ── DOCUMENTS ── */}
+        {tab === "documents" && (
+          <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+            <div style={{fontWeight:600,fontSize:14,marginBottom:16}}>Documents</div>
+            {docFiles.length === 0
+              ? <Empty icon="📎" text="No documents uploaded yet." />
+              : <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {docFiles.map(f => (
+                    <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="vd-row"
+                      style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 13px",borderRadius:10,border:"1px solid #f0ede8",textDecoration:"none",background:"#fafaf8",transition:"background .15s"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:30,height:30,borderRadius:7,background:"#fdf8f3",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📄</div>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a"}}>{f.name}</div>
+                          <div style={{fontSize:11,color:"#9ca3af",marginTop:1}}>{toTitle(f.fieldKey)}</div>
+                        </div>
                       </div>
-                      <span className="text-sm text-amber-700 font-medium">View</span>
+                      <span style={{fontSize:12,color:"#c2894b",fontWeight:600}}>View →</span>
                     </a>
                   ))}
                 </div>
+            }
+          </div>
+        )}
+
+        {/* ── ENQUIRIES ── */}
+        {tab === "enquiries" && (
+          <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div style={{fontWeight:600,fontSize:14}}>Leads & Enquiries</div>
+              {enquiries.length > 0 && (
+                <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:"#eff6ff",color:"#1d4ed8"}}>
+                  {enquiries.filter(e=>e.status==="new").length} new
+                </span>
               )}
             </div>
-          )}
 
-          {activeTab === "enquiries" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Leads & Enquiries</h3>
-              {loadingEnquiries ? (
-                <div className="text-sm text-gray-500 py-10 text-center">Loading enquiries...</div>
-              ) : enquiries.length === 0 ? (
-                <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  <div className="text-4xl mb-4">📨</div>
-                  <h4 className="text-lg font-medium text-gray-900">No leads yet</h4>
-                  <p className="text-sm text-gray-500 mt-1">When users enquire about your services, they will appear here.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {enquiries.map((enq) => (
-                    <div key={enq._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow bg-white">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg border border-amber-100">
-                            {(enq.name || "U")[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-900">{enq.name}</h4>
-                            <div className="text-sm text-gray-500 flex flex-wrap gap-x-4 mt-1">
-                              <span>📞 {enq.phone}</span>
-                              {enq.email && <span>✉️ {enq.email}</span>}
+            {loadingE
+              ? <div style={{textAlign:"center",padding:"40px 0",color:"#9ca3af",fontSize:13}}>Loading…</div>
+              : enquiries.length === 0
+              ? <Empty icon="📨" text="No leads yet. Enquiries will appear here." />
+              : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {enquiries.map(enq => {
+                    const eMap = {
+                      new:    {label:"New",    bg:"#eff6ff",c:"#1d4ed8"},
+                      viewed: {label:"Viewed", bg:"#fffbeb",c:"#b45309"},
+                      booked: {label:"Booked", bg:"#f0fdf4",c:"#166534"},
+                    };
+                    const em = eMap[enq.status] || {label:enq.status,bg:"#f9fafb",c:"#374151"};
+                    return (
+                      <div key={enq._id} className="vd-enq"
+                        style={{border:"1px solid #f0ede8",borderRadius:11,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10,transition:"border-color .15s",background:"#fff"}}>
+                        {/* Header */}
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#c2894b,#8b5e3c)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:600,fontSize:14,flexShrink:0}}>
+                              {(enq.name||"U").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{fontWeight:600,fontSize:13,color:"#1a1a1a"}}>{enq.name}</div>
+                              <div style={{fontSize:11,color:"#6b7280",marginTop:1}}>{enq.phone}{enq.email?` · ${enq.email}`:""}</div>
                             </div>
                           </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            enq.status === 'new' ? 'bg-blue-100 text-blue-700' :
-                            enq.status === 'viewed' ? 'bg-amber-100 text-amber-700' :
-                            enq.status === 'booked' ? 'bg-purple-100 text-purple-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {enq.status.charAt(0).toUpperCase() + enq.status.slice(1)}
-                          </span>
-                          <div className="text-xs text-gray-400 mt-2">
-                            {new Date(enq.createdAt).toLocaleDateString()}
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                            <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:em.bg,color:em.c}}>{em.label}</span>
+                            <span style={{fontSize:11,color:"#9ca3af"}}>{new Date(enq.createdAt).toLocaleDateString()}</span>
                           </div>
                         </div>
+
+                        {/* Registered user pill */}
+                        {enq.userId && (
+                          <div style={{display:"flex",alignItems:"center",gap:7,background:"#fafaf8",borderRadius:7,padding:"5px 9px",border:"1px solid #f0ede8"}}>
+                            <img
+                              src={enq.userId.profileImage?.startsWith("http") ? enq.userId.profileImage : enq.userId.profileImage ? `${API_ORIGIN}${enq.userId.profileImage}` : "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
+                              alt="" style={{width:18,height:18,borderRadius:"50%",objectFit:"cover"}} />
+                            <span style={{fontSize:11,color:"#6b7280"}}>
+                              <b>Registered:</b> {enq.userId.name}{enq.userId.email ? ` (${enq.userId.email})` : ""}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Body */}
+                        {!enq.contactViewed ? (
+                          <>
+                            <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+                              {[["Event",enq.eventType],["Date",enq.eventDate?new Date(enq.eventDate).toLocaleDateString():null],["Guests",enq.guestCount],["Budget",enq.budget]]
+                                .filter(([,v])=>v).map(([l,v])=>(
+                                <div key={l} style={{fontSize:12}}>
+                                  <span style={{color:"#9ca3af"}}>{l}: </span>
+                                  <span style={{fontWeight:600,color:"#374151",textTransform:"capitalize"}}>{v}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {enq.message && (
+                              <div style={{fontSize:13,color:"#4b5563",lineHeight:1.6,background:"#fafaf8",borderRadius:8,padding:"9px 12px",border:"1px solid #f0ede8"}}>
+                                {enq.message}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div style={{fontSize:12,color:"#92400e",background:"#fffbeb",borderRadius:8,padding:"8px 12px",border:"1px solid #fde68a"}}>
+                            👀 User viewed your contact — reach out now!
+                          </div>
+                        )}
                       </div>
-
-                      {/* User's Registered Profile Info */}
-                      {enq.userId && (
-                        <div className="mb-4 flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg p-2.5">
-                          <img 
-                            src={enq.userId.profileImage?.startsWith("http") ? enq.userId.profileImage : (enq.userId.profileImage ? `${API_ORIGIN}${enq.userId.profileImage}` : "https://cdn-icons-png.flaticon.com/512/149/149071.png")} 
-                            alt="User Profile" 
-                            className="w-6 h-6 rounded-full object-cover"
-                          />
-                          <div className="text-xs text-gray-600">
-                            <span className="font-semibold">Registered Account:</span> {enq.userId.name} {enq.userId.email && `(${enq.userId.email})`}
-                          </div>
-                        </div>
-                      )}
-
-                      {!enq.contactViewed ? (
-                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                          <div className="flex flex-wrap gap-x-6 gap-y-2 mb-3 text-sm">
-                            <div>
-                              <span className="text-gray-500">Event:</span>{" "}
-                              <span className="font-medium text-gray-900 capitalize">{enq.eventType || "N/A"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Date:</span>{" "}
-                              <span className="font-medium text-gray-900">
-                                {enq.eventDate ? new Date(enq.eventDate).toLocaleDateString() : "N/A"}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Guests:</span>{" "}
-                              <span className="font-medium text-gray-900">{enq.guestCount || "N/A"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Budget:</span>{" "}
-                              <span className="font-medium text-gray-900">{enq.budget || "N/A"}</span>
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Message</span>
-                            <p className="text-sm text-gray-700 whitespace-pre-line">{enq.message || "No message provided."}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-amber-50 rounded-lg p-3 border border-amber-100 text-sm text-amber-800 flex items-center gap-2">
-                          <span className="text-lg">👀</span>
-                          User viewed your contact details. Reach out to them!
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+            }
+          </div>
+        )}
+
       </div>
+    </div>
+  );
+}
+
+function Empty({ icon, text }) {
+  return (
+    <div style={{textAlign:"center",padding:"44px 0",color:"#9ca3af"}}>
+      <div style={{fontSize:28,marginBottom:8}}>{icon}</div>
+      <div style={{fontSize:13}}>{text}</div>
     </div>
   );
 }

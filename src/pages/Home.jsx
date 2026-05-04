@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { useEffect, useState } from "react";
 import useVendorNavigation from "../hooks/useVendorNavigation";
+import heroImage from "../assets/hero3.jpg.jpeg";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const ROOT_API_BASE = API_BASE.replace(/\/admin\/?$/, "");
@@ -86,19 +87,19 @@ const Home = () => {
   };
 
   return (
-    <div className="w-full bg-gray-50 min-h-screen -mt-24">
+    <div className="w-full bg-gray-50 min-h-screen -mt-8">
       {/* Hero Section */}
       <section className="relative h-[80vh] min-h-[600px] flex items-center justify-center pt-20">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 z-0">
           <img
-            src="https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=2000&auto=format&fit=crop"
+            src={heroImage}
             alt="Wedding Background"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-black/40"></div>
           {/* Subtle gradient at the bottom to blend with the next section */}
-          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-50 to-transparent"></div>
+          {/* <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-50 to-transparent"></div> */}
         </div>
 
         {/* Hero Content */}
@@ -122,7 +123,7 @@ const Home = () => {
       </section>
 
       {/* Vendor Registration CTA Banner */}
-      <section className="py-12 bg-white relative overflow-hidden">
+      <section className="py-8 bg-white relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 relative z-10">
           <div className="bg-gradient-to-r from-rose-50 to-red-50 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between border border-red-100 shadow-sm">
             <div className="mb-6 md:mb-0 md:mr-8 text-center md:text-left">
@@ -246,7 +247,7 @@ const Home = () => {
             </div>
           </div>
           <div className="rounded-2xl overflow-hidden group relative">
-            <img src="https://images.unsplash.com/photo-1543881528-769b0fa69db4?q=80&w=400&auto=format&fit=crop" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Inspiration" />
+             <img src="https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?q=80&w=400&auto=format&fit=crop" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Inspiration" />
             <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors"></div>
           </div>
           <div className="rounded-2xl overflow-hidden group relative">

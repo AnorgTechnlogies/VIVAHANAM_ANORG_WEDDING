@@ -9,7 +9,7 @@ import VendorAuth from "./pages/VendorAuth";
 import VendorDashboard from "./pages/VendorDashboard";
 import MyEnquiries from "./pages/MyEnquiries";
 import MyShortlist from "./pages/MyShortlist";
-
+import SignUp from "./pages/SignUp";
 function App() {
   return (
     <>
@@ -26,6 +26,7 @@ function App() {
           <Route path="/wedding-shop/my-shortlist" element={<MyShortlist />} />
           <Route path="/shops" element={<Navigate to="/wedding-shop" replace />} />
           <Route path="/" element={<Navigate to="/wedding-shop" replace />} />
+          <Route path="/sign-up" element={<SignUp />} />
         </Routes>
       </main>
       <Footer />

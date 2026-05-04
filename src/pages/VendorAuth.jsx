@@ -20,7 +20,12 @@ export default function AuthPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [step, setStep] = useState(1);
+
+  // 📝 Register OTP States
+  const [registerStep, setRegisterStep] = useState(1);
+  const [registerOtp, setRegisterOtp] = useState("");
 
   const [form, setForm] = useState({
     brandName: "",
@@ -93,7 +98,7 @@ export default function AuthPage() {
     }
   };
 
-  // 🔹 REGISTER
+  // 🔹 SEND REGISTRATION OTP
   const handleRegister = async (e) => {
     e.preventDefault();
     
@@ -105,17 +110,47 @@ export default function AuthPage() {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/vendor/register`, {
+      const res = await fetch(`${API_URL}/vendor/send-signup-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Registration failed");
+      if (!res.ok) throw new Error(data.message || "Failed to send OTP");
+      
+      alert(data.message || "OTP Sent! Please check your email.");
+      setRegisterStep(2);
+    } catch (err) {
+      alert(err.message || "Error sending OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔹 VERIFY REGISTRATION OTP
+  const handleVerifySignupOtp = async (e) => {
+    e.preventDefault();
+    if (!registerOtp) {
+      alert("Please enter the OTP sent to your email.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_URL}/vendor/verify-signup-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, otp: registerOtp }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Verification failed");
       
       alert(data.message || "Registration successful!");
       setIsLogin(true);
+      setRegisterStep(1);
+      setRegisterOtp("");
       setForm({
         brandName: "",
         email: "",
@@ -124,7 +159,7 @@ export default function AuthPage() {
         confirmPassword: "",
       });
     } catch (err) {
-      alert(err.message || "Register Error");
+      alert(err.message || "Verification Error");
     } finally {
       setLoading(false);
     }
@@ -138,7 +173,7 @@ export default function AuthPage() {
     }
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/send-otp`, {
+      const res = await fetch(`${API_URL}/vendor/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
@@ -164,13 +199,13 @@ export default function AuthPage() {
     }
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/reset-password`, {
+      const res = await fetch(`${API_URL}/vendor/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: forgotEmail,
           otp,
-          password: newPassword,
+          newPassword,
         }),
       });
       
@@ -303,12 +338,19 @@ export default function AuthPage() {
                     <div className="relative group">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors" size={20} />
                       <input
-                        type="password"
+                        type={showNewPassword ? "text" : "password"}
                         placeholder="New Password"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none"
+                        className="w-full pl-12 pr-12 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
                     </div>
                     <button
                       onClick={handleResetPassword}
@@ -349,6 +391,7 @@ export default function AuthPage() {
                     onClick={() => {
                       setIsLogin(false);
                       setErrors({});
+                      setRegisterStep(1);
                     }}
                     className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${!isLogin ? "bg-white text-gray-900 shadow-sm border border-gray-100" : "text-gray-500 hover:text-gray-700"}`}
                   >
@@ -417,7 +460,7 @@ export default function AuthPage() {
                       {loading ? "Signing in..." : "Sign In to Dashboard"}
                     </button>
                   </form>
-                ) : (
+                ) : registerStep === 1 ? (
                   <form onSubmit={handleRegister} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="relative group sm:col-span-2">
@@ -502,7 +545,36 @@ export default function AuthPage() {
                       disabled={loading}
                       className="w-full bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold py-4 rounded-xl hover:shadow-xl hover:shadow-rose-500/20 transition-all mt-6 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Creating Account..." : "Create Vendor Account"}
+                      {loading ? "Sending OTP..." : "Create Vendor Account"}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifySignupOtp} className="space-y-5">
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-500">We have sent a verification code to <span className="font-bold text-gray-800">{form.email}</span></p>
+                      <button 
+                        type="button"
+                        onClick={() => setRegisterStep(1)} 
+                        className="text-sm font-semibold text-rose-500 hover:text-rose-600 mt-2 inline-block"
+                      >
+                        Change Email
+                      </button>
+                    </div>
+                    <div className="relative group">
+                      <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-rose-500 transition-colors" size={20} />
+                      <input
+                        type="text"
+                        placeholder="6-digit OTP"
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none tracking-[0.5em] font-mono font-bold text-lg text-gray-800"
+                        value={registerOtp}
+                        onChange={(e) => setRegisterOtp(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold py-4 rounded-xl hover:shadow-xl hover:shadow-rose-500/20 transition-all mt-6 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      {loading ? "Verifying..." : "Verify & Complete Registration"}
                     </button>
                   </form>
                 )}

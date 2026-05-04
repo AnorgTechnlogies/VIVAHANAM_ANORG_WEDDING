@@ -5,17 +5,70 @@ import {
   Loader2, 
   Upload, 
   Trash2, 
-  ChevronRight,
   Heart,
-  Info
+  Info,
+  FileText
 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const FORM_KEY = "vendor_onboarding";
 const LS_KEY = `vivahanam_vendor_form_${FORM_KEY}`;
 
+const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const ACCEPT_ATTR = "image/jpeg,image/png,image/webp,application/pdf";
+
+const PROFILE_KEYS = new Set([
+  "profile_picture",
+  "logo",
+  "brand_logo",
+  "profile_pic",
+  "profile_image",
+]);
+const PORTFOLIO_KEYS = new Set(["portfolio_gallery", "portfolio"]);
+
 const sanitizeKey = (value = "") =>
   value.toString().trim().toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+
+const countSlot = (slot) => {
+  if (slot === undefined || slot === null) return 0;
+  if (Array.isArray(slot)) return slot.filter(Boolean).length;
+  return 1;
+};
+
+function getFileFieldKind(field) {
+  const role = field?.validation?.fileRole;
+  if (role === "profile") return "profile";
+  if (role === "portfolio") return "portfolio";
+  const sk = sanitizeKey(field.key);
+  if (PROFILE_KEYS.has(sk)) return "profile";
+  if (PORTFOLIO_KEYS.has(sk)) return "portfolio";
+  return "generic";
+}
+
+function validateLocalFile(file, kind) {
+  if (!file) return "No file selected.";
+  if (file.size > MAX_FILE_BYTES) {
+    return `File must be 2MB or smaller (this file is ${(file.size / (1024 * 1024)).toFixed(2)}MB).`;
+  }
+  const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+  if (!allowed.includes(file.type)) {
+    return "Only JPEG, PNG, WebP, or PDF files are allowed.";
+  }
+  if (kind === "profile" || kind === "portfolio") {
+    const imgOnly = ["image/jpeg", "image/png", "image/webp"];
+    if (!imgOnly.includes(file.type)) {
+      return kind === "profile"
+        ? "Profile / logo must be an image (JPEG, PNG, or WebP)."
+        : "Portfolio must be images only (JPEG, PNG, or WebP).";
+    }
+  }
+  return null;
+}
+
+function normalizeList(slot) {
+  if (!slot) return [];
+  return Array.isArray(slot) ? slot.filter(Boolean) : [slot].filter(Boolean);
+}
 
 export default function VendorRegister() {
   const navigate = useNavigate();
@@ -29,6 +82,7 @@ export default function VendorRegister() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [dynamicOptions, setDynamicOptions] = useState({});
+  const [uploadBusy, setUploadBusy] = useState(false);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -159,36 +213,152 @@ export default function VendorRegister() {
     } finally { setSaving(false); }
   };
 
+  const deleteFileOnServer = async (fileMeta) => {
+    if (!fileMeta?.publicId) return true;
+    const token = localStorage.getItem("vendorToken");
+    const res = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/upload/delete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        publicId: fileMeta.publicId,
+        resourceType: fileMeta.resourceType,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.message || "Could not remove file from server.");
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * Multer memory → Cloudinary (`vivahanam/vendors/{vendorId}/{fieldKey}`).
+   * Sends fieldKey + file; server validates MIME, 2MB, per-field caps.
+   */
   const uploadFiles = async (field, files) => {
     const key = sanitizeKey(field.key);
-    const list = Array.from(files || []);
+    const kind = getFileFieldKind(field);
+    let list = Array.from(files || []).filter(Boolean);
+    if (list.length === 0) return;
+
+    const currentCount = countSlot(uploadedFiles[key]);
+
+    if (kind === "portfolio") {
+      const remaining = 10 - currentCount;
+      if (remaining <= 0) {
+        setErrors((prev) => ({
+          ...prev,
+          [key]: "Portfolio gallery allows at most 10 images.",
+        }));
+        return;
+      }
+      list = list.slice(0, remaining);
+    }
+    if (kind === "profile" || (!field.multiple && kind === "generic")) {
+      list = list.slice(0, 1);
+    }
+
     const token = localStorage.getItem("vendorToken");
     const uploaded = [];
+
     for (const file of list) {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/upload`, { 
-        method: "POST", body, headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) uploaded.push(data.data);
+      const msg = validateLocalFile(file, kind);
+      if (msg) {
+        setErrors((prev) => ({ ...prev, [key]: msg }));
+        return;
+      }
     }
-    setUploadedFiles((prev) => {
-      const next = { ...prev, [key]: field.multiple ? [...(prev[key] || []), ...uploaded] : uploaded[0] };
-      persistLocal(formValues, next);
-      return next;
-    });
+    setErrors((prev) => ({ ...prev, [key]: "" }));
+
+    setUploadBusy(true);
+    try {
+      for (const file of list) {
+        const body = new FormData();
+        body.append("fieldKey", field.key);
+        body.append("file", file);
+        const res = await fetch(`${API_URL}/vendor-submissions/${FORM_KEY}/upload`, {
+          method: "POST",
+          body,
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setErrors((prev) => ({
+            ...prev,
+            [key]: data.message || "Upload failed.",
+          }));
+          break;
+        }
+        uploaded.push(data.data);
+      }
+
+      if (uploaded.length === 0) return;
+
+      setUploadedFiles((prev) => {
+        const appendSlot = kind === "portfolio" || field.multiple;
+        const next = {
+          ...prev,
+          [key]: appendSlot ? [...normalizeList(prev[key]), ...uploaded] : uploaded[uploaded.length - 1],
+        };
+        persistLocal(formValues, next);
+        return next;
+      });
+    } finally {
+      setUploadBusy(false);
+    }
   };
 
   const validate = () => {
     const nextErrors = {};
-    config.sections.forEach(s => {
-      (s.fields || []).forEach(f => {
-        if (f.depends_on && f.depends_on_value && formValues[sanitizeKey(f.depends_on)] !== f.depends_on_value) return;
+    config.sections.forEach((s) => {
+      if (s.enabled === false) return;
+      (s.fields || []).forEach((f) => {
+        if (f.enabled === false) return;
+        if (f.depends_on && f.depends_on_value && formValues[sanitizeKey(f.depends_on)] !== f.depends_on_value)
+          return;
+
+        const k = sanitizeKey(f.key);
+
+        if (f.type === "file") {
+          const kind = getFileFieldKind(f);
+          const n = countSlot(uploadedFiles[k]);
+
+          if (kind === "profile") {
+            if (n !== 1) {
+              nextErrors[k] =
+                n === 0
+                  ? "Upload exactly one profile image (JPEG, PNG, or WebP)."
+                  : "Only one profile / logo image allowed. Remove extras.";
+            }
+            return;
+          }
+
+          if (kind === "portfolio") {
+            if (n < 5) {
+              nextErrors[k] = `Upload at least 5 portfolio images (${n}/5). JPEG, PNG, or WebP only.`;
+            } else if (n > 10) {
+              nextErrors[k] = "Portfolio allows at most 10 images.";
+            }
+            return;
+          }
+
+          if (f.required) {
+            const val = uploadedFiles[k];
+            if (!val || (Array.isArray(val) && val.length === 0)) nextErrors[k] = "Required";
+          }
+          if (!f.multiple && n > 1) nextErrors[k] = "Only one file allowed for this field.";
+          return;
+        }
+
         if (f.required) {
-          const k = sanitizeKey(f.key);
-          const val = f.type === "file" ? uploadedFiles[k] : formValues[k];
-          if (!val || (Array.isArray(val) && val.length === 0)) nextErrors[k] = "Required";
+          const val = formValues[k];
+          if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
+            nextErrors[k] = "Required";
+          }
         }
       });
     });
@@ -197,7 +367,10 @@ export default function VendorRegister() {
   };
 
   const submit = async () => {
-    if (!validate()) return;
+    if (!validate()) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     setSubmitting(true);
     try {
       const token = localStorage.getItem("vendorToken");
@@ -211,8 +384,9 @@ export default function VendorRegister() {
         alert("Application submitted successfully! Redirecting to dashboard...");
         navigate("/wedding-shop/vendor/dashboard");
       } else {
-        const data = await res.json();
-        alert(data.message || "Submission failed");
+        const data = await res.json().catch(() => ({}));
+        const detail = data.errors?.length ? `\n\n${data.errors.join("\n")}` : "";
+        alert((data.message || "Submission failed") + detail);
       }
     } finally { setSubmitting(false); }
   };
@@ -249,26 +423,79 @@ export default function VendorRegister() {
             ))}
           </div>
         );
-      case "file":
+      case "file": {
+        const kind = getFileFieldKind(f);
         const files = uploadedFiles[key] || [];
         const list = Array.isArray(files) ? files : [files];
+        const hint =
+          kind === "profile"
+            ? "One image required (JPEG, PNG, or WebP). Max 2MB. Replaces previous upload."
+            : kind === "portfolio"
+              ? `5–10 images required (JPEG, PNG, or WebP). Max 2MB each. ${countSlot(uploadedFiles[key])}/10 uploaded.`
+              : "JPEG, PNG, WebP, or PDF. Max 2MB.";
+        const multi =
+          kind === "portfolio"
+            ? true
+            : kind === "profile"
+              ? false
+              : !!f.multiple;
+        const previewItem = (file, i) => {
+          const url = file?.url || file;
+          const mime = file?.type || "";
+          const isImg = typeof mime === "string" && mime.startsWith("image/");
+          return (
+            <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-rose-100 shadow-sm bg-rose-50/50 flex items-center justify-center">
+              {isImg ? (
+                <img src={url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <FileText className="w-8 h-8 text-rose-300" />
+              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await deleteFileOnServer(file);
+                  if (!ok) return;
+                  setUploadedFiles((p) => {
+                    const next = {
+                      ...p,
+                      [key]: multi ? list.filter((_, idx) => idx !== i) : null,
+                    };
+                    persistLocal(formValues, next);
+                    return next;
+                  });
+                  setErrors((prev) => ({ ...prev, [key]: "" }));
+                }}
+                className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+              </button>
+            </div>
+          );
+        };
         return (
           <div className="space-y-3">
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-rose-100 rounded-2xl py-8 px-4 hover:bg-rose-50/30 transition-all cursor-pointer group">
+            <p className="text-xs text-gray-400 px-1">{hint}</p>
+            <label className={`flex flex-col items-center justify-center border-2 border-dashed border-rose-100 rounded-2xl py-8 px-4 transition-all group ${uploadBusy ? "opacity-50 pointer-events-none" : "hover:bg-rose-50/30 cursor-pointer"}`}>
               <Upload className="w-6 h-6 text-rose-300 group-hover:text-rose-500 mb-2" />
-              <span className="text-sm font-medium text-rose-400">Upload {f.label}</span>
-              <input type="file" className="hidden" multiple={f.multiple} onChange={e => uploadFiles(f, e.target.files)} />
+              <span className="text-sm font-medium text-rose-400">{uploadBusy ? "Uploading…" : `Upload ${f.label}`}</span>
+              <input
+                type="file"
+                className="hidden"
+                accept={ACCEPT_ATTR}
+                multiple={multi}
+                disabled={uploadBusy}
+                onChange={(e) => {
+                  uploadFiles(f, e.target.files);
+                  e.target.value = "";
+                }}
+              />
             </label>
             <div className="flex flex-wrap gap-3">
-              {list.map((file, i) => (
-                <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-rose-100 shadow-sm">
-                  <img src={file.url || file} className="w-full h-full object-cover" />
-                  <button onClick={() => setUploadedFiles(p => ({...p, [key]: f.multiple ? list.filter((_, idx)=>idx!==i) : null }))} className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4 text-white" /></button>
-                </div>
-              ))}
+              {list.filter(Boolean).map((file, i) => previewItem(file, i))}
             </div>
           </div>
         );
+      }
       default: return null;
     }
   };

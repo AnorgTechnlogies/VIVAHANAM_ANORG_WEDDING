@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import VendorReviewSection from "../components/VendorReviewSection";
 import EnquiryModal from "../components/EnquiryModal";
+import AuthPage from "./SignUp";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const ROOT = API_BASE.replace(/\/api.*$/, "");
@@ -29,6 +30,8 @@ const VendorDetails = () => {
   const [showEnquiry, setShowEnquiry] = useState(false);
   const [contactRevealed, setContactRevealed] = useState(false);
   const [revealedContact, setRevealedContact] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   const token = localStorage.getItem("vivahanamToken");
   const isLoggedIn = !!token;
@@ -73,19 +76,41 @@ const VendorDetails = () => {
     catch { /* ignore */ }
   };
 
+  const handleAuthSuccess = () => {
+    setShowAuth(false);
+    if (pendingAction === "enquiry") {
+      setShowEnquiry(true);
+    } else if (pendingAction === "contact") {
+      handleViewContact();
+    } else if (pendingAction === "shortlist") {
+      handleShortlist();
+    }
+    setPendingAction(null);
+  };
+
   const handleShortlist = async () => {
-    if (!isLoggedIn) return alert("Please login to shortlist vendors");
+    const currentToken = localStorage.getItem("vivahanamToken");
+    if (!currentToken) {
+      setPendingAction("shortlist");
+      setShowAuth(true);
+      return;
+    }
     try {
-      const res = await fetch(`${API_BASE}/vendors/${id}/shortlist`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/vendors/${id}/shortlist`, { method: "POST", headers: { Authorization: `Bearer ${currentToken}` } });
       const d = await res.json();
       if (d.success) setShortlisted(d.data.shortlisted);
     } catch { /* ignore */ }
   };
 
   const handleViewContact = async () => {
-    if (!isLoggedIn) return alert("Please login to view vendor contact");
+    const currentToken = localStorage.getItem("vivahanamToken");
+    if (!currentToken) {
+      setPendingAction("contact");
+      setShowAuth(true);
+      return;
+    }
     try {
-      const res = await fetch(`${API_BASE}/vendors/${id}/contact`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/vendors/${id}/contact`, { headers: { Authorization: `Bearer ${currentToken}` } });
       const d = await res.json();
       if (d.success) { setRevealedContact(d.data); setContactRevealed(true); }
     } catch { /* ignore */ }
@@ -224,33 +249,7 @@ const VendorDetails = () => {
         </div>
       </div>
 
-      {/* ══════ STICKY TAB NAV ══════ */}
-      <div style={{
-        position: "sticky", top: 0, zIndex: 100,
-        background: stickyVisible ? "#fff" : "transparent",
-        borderBottom: stickyVisible ? "1px solid #EDE0D8" : "none",
-        boxShadow: stickyVisible ? "0 2px 12px rgba(0,0,0,.06)" : "none",
-        transition: "all .25s",
-      }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", gap: 0 }}>
-            {TABS.map(t => (
-              <button key={t} className="vd-tab" onClick={() => scrollTo(t)} style={{
-                padding: "16px 24px", border: "none", background: "transparent", cursor: "pointer",
-                fontSize: 14, fontWeight: 600, color: activeTab === t ? "#D4426A" : "#7A6E6A",
-                borderBottom: activeTab === t ? "3px solid #D4426A" : "3px solid transparent",
-                textTransform: "capitalize", transition: "all .15s",
-              }}>{t}</button>
-            ))}
-          </div>
-          {stickyVisible && (
-            <button className="vd-sidebar-btn" onClick={() => scrollTo("about")} style={{
-              background: "#D4426A", color: "#fff", border: "none", padding: "10px 24px",
-              borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .2s",
-            }}>Send Message</button>
-          )}
-        </div>
-      </div>
+    
 
       {/* ══════ TWO-COLUMN LAYOUT (65/35) ══════ */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 80px", display: "grid", gridTemplateColumns: "1fr 380px", gap: 40, alignItems: "start" }}>
@@ -349,7 +348,15 @@ const VendorDetails = () => {
               <h3 style={{ fontSize: 16, color: "#2C2420", margin: "0 0 20px", fontWeight: 600 }}>Interested? Let's connect</h3>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <button onClick={() => setShowEnquiry(true)} className="vd-sidebar-btn" style={{
+                <button onClick={() => {
+                  const currentToken = localStorage.getItem("vivahanamToken");
+                  if (!currentToken) {
+                    setPendingAction("enquiry");
+                    setShowAuth(true);
+                  } else {
+                    setShowEnquiry(true);
+                  }
+                }} className="vd-sidebar-btn" style={{
                   background: "#D4426A", color: "#fff", border: "none", padding: "14px",
                   borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer",
                   transition: "all .2s", width: "100%",
@@ -420,6 +427,15 @@ const VendorDetails = () => {
 
       {/* ══════ ENQUIRY MODAL ══════ */}
       {showEnquiry && vendor && <EnquiryModal vendor={vendor} onClose={() => setShowEnquiry(false)} />}
+
+      {/* ══════ AUTH MODAL ══════ */}
+      {showAuth && (
+        <AuthPage 
+          onSuccess={handleAuthSuccess} 
+          onClose={() => { setShowAuth(false); setPendingAction(null); }} 
+          disableRegisterRedirect={true} 
+        />
+      )}
     </div>
   );
 };

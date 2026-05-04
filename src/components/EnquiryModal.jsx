@@ -46,7 +46,7 @@ export default function EnquiryModal({ vendor, onClose }) {
             </div>
             <button onClick={onClose} style={{ background: "rgba(255,255,255,.2)", border: "none", color: "#fff", width: 36, height: 36, borderRadius: "50%", fontSize: 20, cursor: "pointer" }}>✕</button>
           </div>
-          <div style={{ marginTop: 8, fontSize: 12, opacity: .8, display: "flex", alignItems: "center", gap: 6 }}>🔥 High demand — 12 enquiries this week</div>
+          {/* <div style={{ marginTop: 8, fontSize: 12, opacity: .8, display: "flex", alignItems: "center", gap: 6 }}>🔥 High demand — 12 enquiries this week</div> */}
         </div>
 
         {done ? (

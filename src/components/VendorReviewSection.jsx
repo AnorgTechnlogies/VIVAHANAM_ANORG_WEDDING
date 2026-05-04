@@ -335,13 +335,13 @@ export default function VendorReviewSection({ vendorId }) {
       )}
 
       {/* Login prompt */}
-      {!isLoggedIn && (
+      {/* {!isLoggedIn && (
         <div style={{ textAlign: "center", marginTop: 24, padding: 20, background: "#FDE8EE", borderRadius: 16 }}>
           <p style={{ color: "#D4426A", fontSize: 14, fontWeight: 500, margin: 0 }}>
-            Please <a href="/login" style={{ color: "#D4426A", fontWeight: 700 }}>login</a> to write a review
+            Please <a href="/sign-up" style={{ color: "#D4426A", fontWeight: 700 }}>login</a> to write a review
           </p>
         </div>
-      )}
+      )} */}
     </section>
   );
 }
