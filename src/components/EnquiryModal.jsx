@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 
 const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const EVENT_TYPES = ["wedding","engagement","reception","pre-wedding","birthday","anniversary","other"];
@@ -15,10 +16,10 @@ export default function EnquiryModal({ vendor, onClose }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
-    if (!token) return setError("Please login to send enquiry");
-    if (!form.name.trim()) return setError("Name is required");
-    if (!form.phone.trim()) return setError("Phone number is required");
-    setSubmitting(true); setError("");
+    if (!token) return toast.warn("Please login to send enquiry");
+    if (!form.name.trim()) return toast.warn("Name is required");
+    if (!form.phone.trim()) return toast.warn("Phone number is required");
+    setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/vendors/${vendor._id}/enquiry`, {
         method: "POST",
@@ -28,7 +29,8 @@ export default function EnquiryModal({ vendor, onClose }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setDone(true);
-    } catch (e) { setError(e.message); }
+      toast.success("Enquiry sent successfully!");
+    } catch (e) { toast.error(e.message); }
     finally { setSubmitting(false); }
   };
 
@@ -60,7 +62,7 @@ export default function EnquiryModal({ vendor, onClose }) {
           <div style={{ padding: 28, overflowY: "auto", flex: 1 }}>
             {!token && <div style={{ background: "#FDE8EE", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#D4426A", fontWeight: 500 }}>⚠️ Please <a href="/login" style={{ color: "#D4426A", fontWeight: 700 }}>login</a> to send an enquiry</div>}
 
-            {error && <div style={{ background: "#FEE2E2", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#991B1B" }}>{error}</div>}
+
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
               <div>

@@ -10,6 +10,8 @@ import VendorDashboard from "./pages/VendorDashboard";
 import MyEnquiries from "./pages/MyEnquiries";
 import MyShortlist from "./pages/MyShortlist";
 import SignUp from "./pages/SignUp";
+import Plans from "./pages/Plans";
+
 function App() {
   return (
     <>
@@ -27,6 +29,7 @@ function App() {
           <Route path="/shops" element={<Navigate to="/wedding-shop" replace />} />
           <Route path="/" element={<Navigate to="/wedding-shop" replace />} />
           <Route path="/sign-up" element={<SignUp />} />
+          <Route path="/plans" element={<Plans />} />
         </Routes>
       </main>
       <Footer />

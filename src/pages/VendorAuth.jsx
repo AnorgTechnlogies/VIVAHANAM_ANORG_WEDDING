@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Phone, Briefcase, KeyRound, ArrowRight, ArrowLeft, Home, Store, Eye, EyeOff } from "lucide-react";  
@@ -92,7 +93,7 @@ export default function AuthPage() {
       // Use useVendorNavigation to check registration status and redirect accordingly
       await handleVendorNavigation({ fromGatekeeper: true, replace: true });
     } catch (err) {
-      alert(err.message || "Login Error");
+      toast.error(err.message || "Login Error");
     } finally {
       setLoading(false);
     }
@@ -119,10 +120,10 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to send OTP");
       
-      alert(data.message || "OTP Sent! Please check your email.");
+      toast.success(data.message || "OTP Sent! Please check your email.");
       setRegisterStep(2);
     } catch (err) {
-      alert(err.message || "Error sending OTP");
+      toast.error(err.message || "Error sending OTP");
     } finally {
       setLoading(false);
     }
@@ -132,7 +133,7 @@ export default function AuthPage() {
   const handleVerifySignupOtp = async (e) => {
     e.preventDefault();
     if (!registerOtp) {
-      alert("Please enter the OTP sent to your email.");
+      toast.warn("Please enter the OTP sent to your email.");
       return;
     }
 
@@ -147,7 +148,7 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Verification failed");
       
-      alert(data.message || "Registration successful!");
+      toast.success(data.message || "Registration successful!");
       setIsLogin(true);
       setRegisterStep(1);
       setRegisterOtp("");
@@ -159,7 +160,7 @@ export default function AuthPage() {
         confirmPassword: "",
       });
     } catch (err) {
-      alert(err.message || "Verification Error");
+      toast.error(err.message || "Verification Error");
     } finally {
       setLoading(false);
     }
@@ -168,7 +169,7 @@ export default function AuthPage() {
   // 🔥 SEND OTP
   const handleSendOtp = async () => {
     if (!forgotEmail) {
-      alert("Please enter your email");
+      toast.warn("Please enter your email");
       return;
     }
     try {
@@ -182,10 +183,10 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error sending OTP");
       
-      alert("OTP Sent 📩");
+      toast.success("OTP Sent 📩");
       setStep(2);
     } catch (err) {
-      alert(err.message || "Error sending OTP");
+      toast.error(err.message || "Error sending OTP");
     } finally {
       setLoading(false);
     }
@@ -194,7 +195,7 @@ export default function AuthPage() {
   // 🔥 RESET PASSWORD WITH OTP
   const handleResetPassword = async () => {
     if (!otp || !newPassword) {
-      alert("Please fill all fields");
+      toast.warn("Please fill all fields");
       return;
     }
     try {
@@ -212,14 +213,14 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error resetting password");
 
-      alert(data.message || "Password reset successful!");
+      toast.success(data.message || "Password reset successful!");
       setShowForgot(false);
       setStep(1);
       setOtp("");
       setNewPassword("");
       setForgotEmail("");
     } catch (err) {
-      alert(err.message || "Error resetting password");
+      toast.error(err.message || "Error resetting password");
     } finally {
       setLoading(false);
     }

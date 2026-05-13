@@ -107,4 +107,3 @@ export const getDeviceInfo = () => {
 export const clearDeviceId = () => {
   localStorage.removeItem("vivahanamDeviceId");
 };
-

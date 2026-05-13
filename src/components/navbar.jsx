@@ -748,12 +748,12 @@ const Navbar = () => {
 
   const handleViewProfile = () => {
     setIsProfileDropdownOpen(false);
-    navigate("/profile");
+    window.location.href = `${MAIN_DOMAIN}/profile`;
   };
 
   const handleUpdateProfile = () => {
     setIsProfileDropdownOpen(false);
-    navigate("/update-profile");
+    window.location.href = `${MAIN_DOMAIN}/update-profile`;
   };
 
 // Function to handle Home/Logo click - redirects to main domain with smooth scroll

@@ -143,10 +143,11 @@ const VendorDetails = () => {
   const heroImg = img(allImages[0]) || FALLBACK;
   const gridImgs = allImages.slice(1, 5);
   const extraCount = Math.max(0, allImages.length - 5);
-  const data = vendor.additionalData || {};
-  const category = vendor.categories?.[0] || "Vendor";
-  const city = vendor.location?.city || "";
-  const state = vendor.location?.state || "";
+  const data = vendor.data || vendor.additionalData || {};
+  const category = vendor.vendorType || vendor.category || data.category || vendor.submission?.data?.category || (Array.isArray(vendor.categories) ? vendor.categories[0] : null) || "Vendor";
+  const city = vendor.city || vendor.location?.city || data.city || vendor.submission?.data?.city || "";
+  const state = vendor.state || vendor.location?.state || data.state || vendor.submission?.data?.state || "";
+  const vName = vendor.brandName || vendor.name || data.brand_name || vendor.submission?.data?.brand_name || "Vendor";
 
   return (
     <div style={{ background: "#FDF8F3", minHeight: "100vh", fontFamily: "'DM Sans',sans-serif" }}>
@@ -167,7 +168,7 @@ const VendorDetails = () => {
           <span style={{ cursor: "pointer", color: "#D4426A" }} onClick={() => navigate("/wedding-shop/vendors")}>{category}s</span>
           {city && <><span>›</span><span style={{ cursor: "pointer", color: "#D4426A" }} onClick={() => navigate(`/wedding-shop/vendors?location=${city}`)}>{city}</span></>}
           <span>›</span>
-          <span style={{ color: "#2C2420", fontWeight: 500 }}>{vendor.name}</span>
+          <span style={{ color: "#2C2420", fontWeight: 500 }}>{vName}</span>
         </nav>
       </div>
 
@@ -177,7 +178,7 @@ const VendorDetails = () => {
           {/* Main large image */}
           <div className="vd-gallery-cell" onClick={() => setLightbox({ open: true, idx: 0 })}
             style={{ cursor: "pointer", overflow: "hidden", position: "relative", gridRow: "1 / 1" }}>
-            <img src={heroImg} alt={vendor.name} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }} />
+            <img src={heroImg} alt={vName} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }} />
           </div>
           {/* 2×2 small grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 6 }}>
@@ -212,7 +213,7 @@ const VendorDetails = () => {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
           <div>
             <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 36, fontWeight: 700, color: "#2C2420", margin: "0 0 6px", lineHeight: 1.1 }}>
-              {vendor.name}
+              {vName}
             </h1>
             <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 14, color: "#5C524F", flexWrap: "wrap" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -257,24 +258,7 @@ const VendorDetails = () => {
         {/* ── LEFT COLUMN ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
 
-          {/* ── PRICING ── */}
-          <section ref={sectionRefs.about} style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE0D8", padding: 28, marginBottom: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 12, color: "#7A6E6A", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Starting Price</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: "#2C2420", fontFamily: "'Cormorant Garamond',serif" }}>
-                  {vendor.price ? `₹${vendor.price.toLocaleString()}` : "Price On Request"}
-                </div>
-              </div>
-              {vendor.categories?.length > 0 && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {vendor.categories.map((c, i) => (
-                    <span key={i} style={{ background: "#FDE8EE", color: "#D4426A", padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{c}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
+       
 
           {/* ── ABOUT ── */}
           <section style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE0D8", padding: 28, marginBottom: 24 }}>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
@@ -47,6 +48,34 @@ export default function VendorDashboard() {
   const [enquiries, setEnquiries]     = useState([]);
   const [loadingE, setLoadingE]       = useState(false);
 
+  const [formConfig, setFormConfig]   = useState(null);
+  const [states, setStates]           = useState([]);
+  const [cities, setCities]           = useState([]);
+  const [selectedState, setSelectedState] = useState("");
+
+  // Fetch dynamic form options and states
+  useEffect(() => {
+    fetch(`${API_URL}/marketplace/forms/${FORM_KEY}/config`)
+      .then(r => r.json()).then(d => { if(d.data) setFormConfig(d.data); }).catch(console.error);
+      
+    fetch(`${API_URL}/locations/states`)
+      .then(r => r.json()).then(d => { if(d.data) setStates(d.data); }).catch(console.error);
+  }, []);
+
+  // Fetch cities when state changes
+  useEffect(() => {
+    if (!selectedState) { setCities([]); return; }
+    fetch(`${API_URL}/locations/states/${selectedState}/cities`)
+      .then(r => r.json()).then(d => { if(d.data) setCities(d.data); }).catch(console.error);
+  }, [selectedState]);
+
+  // Extract categories from form config
+  const categories = useMemo(() => {
+    if (!formConfig) return [];
+    const catField = (formConfig.sections || []).flatMap(s => s.fields || []).find(f => f.key === "category");
+    return catField?.options || [];
+  }, [formConfig]);
+
   /* fetch vendor */
   useEffect(() => {
     (async () => {
@@ -66,7 +95,22 @@ export default function VendorDashboard() {
 
   useEffect(() => {
     if (!vendor) return;
-    setPForm({ brandName: vendor.brandName||"", mobile: vendor.mobile||"", city: vendor.city||"", vendorType: vendor.vendorType||"" });
+    const subData = vendor.submission?.data || {};
+    
+    // Fallback to submission data if base vendor profile fields are empty
+    const vType = vendor.vendorType || subData.category || "";
+    const vCity = vendor.city || subData.city || "";
+    const vState = vendor.state || subData.state || "";
+    
+    setPForm({ 
+      brandName: vendor.brandName || subData.brand_name || "", 
+      mobile: vendor.mobile || subData.mobile || "", 
+      city: vCity, 
+      vendorType: vType 
+    });
+    
+    if (vState) setSelectedState(vState);
+    
     setFormData(vendor?.submission?.data && typeof vendor.submission.data === "object" ? vendor.submission.data : {});
   }, [vendor]);
 
@@ -81,14 +125,18 @@ export default function VendorDashboard() {
       .catch(console.error).finally(() => setLoadingE(false));
   }, [tab]);
 
-  const profileFields = useMemo(() => !vendor ? [] : [
-    { key:"brandName",  label:"Brand Name",   value: vendor.brandName,   editable: true },
-    { key:"vendorType", label:"Vendor Type",   value: vendor.vendorType,  editable: true },
-    { key:"email",      label:"Email",         value: vendor.email,       editable: false },
-    { key:"mobile",     label:"Mobile",        value: vendor.mobile,      editable: true },
-    { key:"city",       label:"City",          value: vendor.city,        editable: true },
-    { key:"createdAt",  label:"Joined On",     value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", editable: false },
-  ], [vendor]);
+  const profileFields = useMemo(() => {
+    if (!vendor) return [];
+    const subData = vendor.submission?.data || {};
+    return [
+      { key:"brandName",  label:"Brand Name",   value: vendor.brandName || subData.brand_name,   editable: true },
+      { key:"vendorType", label:"Vendor Type",  value: vendor.vendorType || subData.category,  editable: true, type: "select", options: categories },
+      { key:"email",      label:"Email",        value: vendor.email || subData.email,       editable: false },
+      { key:"mobile",     label:"Mobile",       value: vendor.mobile || subData.mobile,      editable: true },
+      { key:"city",       label:"City",         value: vendor.city || subData.city,        editable: true, type: "city_select" },
+      { key:"createdAt",  label:"Joined On",    value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", editable: false },
+    ];
+  }, [vendor, categories]);
 
   const subEntries = useMemo(() => {
     const p = editForm ? formData : vendor?.submission?.data;
@@ -131,7 +179,7 @@ export default function VendorDashboard() {
       setVendor(d.data);
       localStorage.setItem("vendorData", JSON.stringify(d.data||{}));
       setEditProfile(false);
-    } catch(e) { alert(e.message); } finally { setSavingP(false); }
+    } catch(e) { toast.error(e.message); } finally { setSavingP(false); }
   };
 
   const handleSaveForm = async () => {
@@ -149,7 +197,7 @@ export default function VendorDashboard() {
       if (!r2.ok) throw new Error((await r2.json().catch(()=>({}))).message || "Failed to submit");
       setVendor(p => ({ ...p, submission: { ...p?.submission, data: formData, status:"submitted" }, registrationStatus:"submitted" }));
       setEditForm(false);
-    } catch(e) { alert(e.message); } finally { setSavingF(false); }
+    } catch(e) { toast.error(e.message); } finally { setSavingF(false); }
   };
 
   /* ── Loading ── */
@@ -260,38 +308,22 @@ export default function VendorDashboard() {
           </div>
         )}
 
-        {/* ── PROFILE ── */}
-        {tab === "profile" && (
-          <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-              <div style={{fontWeight:600,fontSize:14}}>My Profile</div>
-              {!editProfile
-                ? <button className="vd-btn" onClick={() => setEditProfile(true)} style={{background:"#fdf8f3",color:"#c2894b",border:"1px solid #e8d5bc"}}>Edit</button>
-                : <div style={{display:"flex",gap:8}}>
-                    <button className="vd-btn" style={{background:"#f9fafb",color:"#6b7280"}} disabled={savingP}
-                      onClick={() => { setEditProfile(false); setPForm({brandName:vendor.brandName||"",mobile:vendor.mobile||"",city:vendor.city||"",vendorType:vendor.vendorType||""}); }}>
-                      Cancel
-                    </button>
-                    <button className="vd-btn" onClick={handleSaveProfile} disabled={savingP}
-                      style={{background:"#c2894b",color:"#fff"}}>
-                      {savingP ? "Saving…" : "Save"}
-                    </button>
-                  </div>
-              }
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
-              {profileFields.map(f => (
-                <div key={f.key}>
-                  <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{f.label}</div>
-                  {editProfile && f.editable
-                    ? <input className="vd-input" value={pForm[f.key]||""} onChange={e => setPForm(p=>({...p,[f.key]:e.target.value}))} />
-                    : <div style={{fontSize:13,color:"#1a1a1a",fontWeight:500,padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{f.value||"—"}</div>
-                  }
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+     {/* ── PROFILE ── */}
+{tab === "profile" && (
+  <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+      <div style={{fontWeight:600,fontSize:14}}>My Profile</div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
+      {profileFields.map(f => (
+        <div key={f.key}>
+          <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{f.label}</div>
+          <div style={{fontSize:13,color:"#1a1a1a",fontWeight:500,padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{f.value||"—"}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
         {/* ── SUBMISSION ── */}
         {tab === "submission" && (

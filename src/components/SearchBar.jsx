@@ -80,12 +80,12 @@ const SearchBar = ({ onSearch }) => {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="w-full bg-gray-50/50 md:bg-transparent border border-gray-200 md:border-none md:border-r border-gray-300 rounded-xl md:rounded-none p-3 text-gray-700 focus:outline-none focus:ring-0 appearance-none font-medium"
+          className="w-full bg-gray-50/50 md:bg-transparent border border-gray-200 md:border-none md:border-r border-gray-300 rounded-xl md:rounded-none p-3 text-gray-700 focus:outline-none focus:ring-0 appearance-none font-medium text-sm md:text-base"
           style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
         >
-          <option key="" value="" className="text-gray-500">All Vendor Types</option>
+          <option key="" value="" className="text-gray-500 text-sm md:text-base">All Vendor Types</option>
           {categories.map((item) => (
-            <option key={item.value} value={item.value} className="text-gray-900">
+            <option key={item.value} value={item.value} className="text-gray-900 text-sm md:text-base">
               {item.label}
             </option>
           ))}
@@ -94,19 +94,19 @@ const SearchBar = ({ onSearch }) => {
         <select
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          className="w-full bg-gray-50/50 md:bg-transparent border border-gray-200 md:border-none rounded-xl md:rounded-none p-3 text-gray-700 focus:outline-none focus:ring-0 appearance-none font-medium"
+          className="w-full bg-gray-50/50 md:bg-transparent border border-gray-200 md:border-none rounded-xl md:rounded-none p-3 text-gray-700 focus:outline-none focus:ring-0 appearance-none font-medium text-sm md:text-base"
           style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
         >
-          <option key="" value="" className="text-gray-500">All Locations</option>
+          <option key="" value="" className="text-gray-500 text-sm md:text-base">All Locations</option>
           {locations.map((item) => (
-            <option key={item.value || item._id} value={item.value} className="text-gray-900">
+            <option key={item.value || item._id} value={item.value} className="text-gray-900 text-sm md:text-base">
               {item.label}
             </option>
           ))}
         </select>
       </div>
 
-      <button type="submit" className="w-full md:w-auto bg-red-600 text-white rounded-xl md:rounded-full px-8 py-3 font-semibold hover:bg-red-700 transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap">
+      <button type="submit" className="w-full md:w-auto bg-red-600 text-white rounded-xl md:rounded-full px-8 py-3 font-semibold hover:bg-red-700 transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap text-sm md:text-base">
         Search Vendors
       </button>
     </form>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { 
   CheckCircle2, 
@@ -229,7 +230,7 @@ export default function VendorRegister() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      alert(data.message || "Could not remove file from server.");
+      toast.error(data.message || "Could not remove file from server.");
       return false;
     }
     return true;
@@ -381,12 +382,12 @@ export default function VendorRegister() {
       });
       if (res.ok) { 
         localStorage.removeItem(LS_KEY); 
-        alert("Application submitted successfully! Redirecting to dashboard...");
-        navigate("/wedding-shop/vendor/dashboard");
+        toast.success("Application submitted successfully! Redirecting to plans...");
+        navigate("/plans");
       } else {
         const data = await res.json().catch(() => ({}));
         const detail = data.errors?.length ? `\n\n${data.errors.join("\n")}` : "";
-        alert((data.message || "Submission failed") + detail);
+        toast.error((data.message || "Submission failed") + detail);
       }
     } finally { setSubmitting(false); }
   };
