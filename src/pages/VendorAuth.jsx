@@ -148,7 +148,7 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Verification failed");
       
-      toast.success(data.message || "Registration successful!");
+      toast.success(data.message || "Registration successful! Please sign in to continue.");
       setIsLogin(true);
       setRegisterStep(1);
       setRegisterOtp("");

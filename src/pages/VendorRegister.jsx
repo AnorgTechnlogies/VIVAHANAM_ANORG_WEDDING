@@ -507,11 +507,11 @@ export default function VendorRegister() {
     <div className="min-h-screen bg-gradient-to-br from-[#fffafa] to-[#fff5f5] py-8 md:py-16 px-4 font-['Outfit',sans-serif]">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-10 md:mb-16 animate-in fade-in slide-in-from-top-4 duration-700">
-          <div className="inline-block p-3 bg-white rounded-2xl shadow-sm mb-4">
+          {/* <div className="inline-block p-3 bg-white rounded-2xl shadow-sm mb-4">
             <Heart className="w-8 h-8 text-rose-400 fill-rose-400/10" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Become a Partner</h1>
-          <p className="text-gray-400 mt-2 font-medium">Join our family and showcase your services to thousands of couples.</p>
+          </div> */}
+          <h1 className="text-3xl font-bold text-red-800 tracking-tight">Build your wedding brand with us</h1>
+          <p className="text-black-400 mt-2 font-bold">Create your vendor profile and attract your ideal clients.</p>
         </div>
 
         <div className="bg-white/70 backdrop-blur-xl rounded-[32px] md:rounded-[48px] shadow-xl shadow-rose-100/50 border border-white p-6 md:p-16 space-y-12 md:space-y-20">

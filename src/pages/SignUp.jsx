@@ -1441,4 +1441,5 @@ const AuthPage = ({ onSuccess, onClose, disableRegisterRedirect = false, context
   );
 };
 
+
 export default AuthPage;

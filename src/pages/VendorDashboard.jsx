@@ -29,7 +29,25 @@ const TABS = [
   { id: "submission", label: "Form" },
   { id: "documents",  label: "Documents" },
   { id: "enquiries",  label: "Enquiries" },
+  { id: "myplan",     label: "My Plan" },
+  { id: "payments",   label: "Payments" },
 ];
+
+const SUB_STATUS = {
+  ACTIVE:    { label: "Active",    color: "#16a34a", bg: "#f0fdf4" },
+  EXPIRED:   { label: "Expired",   color: "#dc2626", bg: "#fef2f2" },
+  CANCELLED: { label: "Cancelled", color: "#6b7280", bg: "#f9fafb" },
+};
+
+const TXN_STATUS = {
+  COMPLETED:     { label: "Completed",     color: "#16a34a", bg: "#f0fdf4" },
+  PENDING:       { label: "Pending",       color: "#d97706", bg: "#fffbeb" },
+  AUTHORIZED:    { label: "Authorized",    color: "#2563eb", bg: "#eff6ff" },
+  FAILED:        { label: "Failed",        color: "#dc2626", bg: "#fef2f2" },
+  REFUNDED:      { label: "Refunded",      color: "#7c3aed", bg: "#f5f3ff" },
+  PARTIAL_REFUND:{ label: "Partial Refund", color: "#7c3aed", bg: "#f5f3ff" },
+  DISPUTED:      { label: "Disputed",      color: "#dc2626", bg: "#fef2f2" },
+};
 
 export default function VendorDashboard() {
   const navigate = useNavigate();
@@ -47,6 +65,12 @@ export default function VendorDashboard() {
 
   const [enquiries, setEnquiries]     = useState([]);
   const [loadingE, setLoadingE]       = useState(false);
+
+  const [transactions, setTransactions] = useState([]);
+  const [loadingT, setLoadingT]         = useState(false);
+
+  const [subscription, setSubscription] = useState(null);
+  const [loadingSub, setLoadingSub]     = useState(false);
 
   const [formConfig, setFormConfig]   = useState(null);
   const [states, setStates]           = useState([]);
@@ -76,7 +100,7 @@ export default function VendorDashboard() {
     return catField?.options || [];
   }, [formConfig]);
 
-  /* fetch vendor */
+  /* fetch vendor + subscription guard */
   useEffect(() => {
     (async () => {
       const token = localStorage.getItem("vendorToken");
@@ -85,6 +109,13 @@ export default function VendorDashboard() {
         const r = await fetch(`${API_URL}/vendor/me`, { headers: { Authorization: `Bearer ${token}` } });
         const d = await r.json();
         if (!r.ok || !d?.success) throw new Error();
+
+        // Subscription guard: redirect to plans if no active subscription
+        if (!d.data?.hasActiveSubscription) {
+          navigate("/plans", { replace: true });
+          return;
+        }
+
         setVendor(d.data);
       } catch {
         localStorage.removeItem("vendorToken");
@@ -123,6 +154,28 @@ export default function VendorDashboard() {
     fetch(`${API_URL}/vendors/vendor-dashboard/enquiries`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { if (d.success) setEnquiries(d.data); })
       .catch(console.error).finally(() => setLoadingE(false));
+  }, [tab]);
+
+  /* fetch payment transactions */
+  useEffect(() => {
+    if (tab !== "payments") return;
+    const token = localStorage.getItem("vendorToken");
+    if (!token) return;
+    setLoadingT(true);
+    fetch(`${API_URL}/vendor-billing/my-transactions`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { if (d.success) setTransactions(d.data || []); })
+      .catch(console.error).finally(() => setLoadingT(false));
+  }, [tab]);
+
+  /* fetch subscription details */
+  useEffect(() => {
+    if (tab !== "myplan") return;
+    const token = localStorage.getItem("vendorToken");
+    if (!token) return;
+    setLoadingSub(true);
+    fetch(`${API_URL}/vendor-billing/my-subscription`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { if (d.success) setSubscription(d.subscription || null); })
+      .catch(console.error).finally(() => setLoadingSub(false));
   }, [tab]);
 
   const profileFields = useMemo(() => {
@@ -218,7 +271,7 @@ export default function VendorDashboard() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         @keyframes spin{to{transform:rotate(360deg)}}
-        .vd-tab{border:none;cursor:pointer;transition:all .15s;background:transparent}
+        .vd-tab{border:none;cursor:pointer;transition:all .15s;background:transparent;white-space:nowrap}
         .vd-tab:hover{color:#c2894b!important}
         .vd-btn{border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;padding:8px 16px;transition:opacity .15s}
         .vd-btn:hover{opacity:.85}
@@ -226,12 +279,55 @@ export default function VendorDashboard() {
         .vd-input:focus{border-color:#c2894b}
         .vd-row:hover{background:#fdf8f3!important}
         .vd-enq:hover{border-color:#e8d5bc!important}
+
+        /* ── Top bar layout ── */
+        .vd-topbar{background:#fff;border-bottom:1px solid #f0ede8;padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:10;gap:16px}
+        .vd-topbar-brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+        .vd-topbar-tabs{display:flex;gap:2px}
+        .vd-topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+
+        /* ── Grid helpers ── */
+        .vd-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+        .vd-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+        .vd-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+
+        /* ── Body ── */
+        .vd-body{max-width:860px;margin:0 auto;padding:28px 20px}
+
+        /* ── Enquiry header ── */
+        .vd-enq-header{display:flex;align-items:center;justify-content:space-between}
+        .vd-enq-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+        .vd-enq-details{display:flex;gap:14px;flex-wrap:wrap}
+
+        /* ── Mobile: up to 768px ── */
+        @media(max-width:768px){
+          .vd-topbar{flex-wrap:wrap;height:auto;padding:10px 16px;gap:8px}
+          .vd-topbar-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;order:3;gap:0;padding-bottom:2px}
+          .vd-topbar-tabs::-webkit-scrollbar{display:none}
+          .vd-topbar-right{margin-left:auto}
+          .vd-grid-4{grid-template-columns:repeat(2,1fr)}
+          .vd-grid-3{grid-template-columns:repeat(2,1fr)}
+          .vd-body{padding:16px 12px}
+          .vd-enq-header{flex-direction:column;align-items:flex-start;gap:8px}
+          .vd-enq-meta{align-items:flex-start;flex-direction:row;gap:8px}
+        }
+
+        /* ── Mobile: up to 480px ── */
+        @media(max-width:480px){
+          .vd-topbar{padding:8px 12px}
+          .vd-grid-4{grid-template-columns:1fr}
+          .vd-grid-3{grid-template-columns:1fr}
+          .vd-grid-2{grid-template-columns:1fr}
+          .vd-body{padding:12px 8px}
+          .vd-btn{font-size:12px;padding:7px 12px}
+          .vd-enq-details{flex-direction:column;gap:6px}
+        }
       `}</style>
 
       {/* ── Top bar ── */}
-      <div style={{background:"#fff",borderBottom:"1px solid #f0ede8",padding:"0 32px",display:"flex",alignItems:"center",justifyContent:"space-between",height:60,position:"sticky",top:0,zIndex:10,gap:16}}>
+      <div className="vd-topbar">
         {/* Brand */}
-        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <div className="vd-topbar-brand">
           <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#c2894b,#8b5e3c)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:600,fontSize:14}}>
             {initial}
           </div>
@@ -242,7 +338,7 @@ export default function VendorDashboard() {
         </div>
 
         {/* Tabs */}
-        <div style={{display:"flex",gap:2}}>
+        <div className="vd-topbar-tabs">
           {TABS.map(t => (
             <button key={t.id} className="vd-tab"
               onClick={() => setTab(t.id)}
@@ -258,7 +354,7 @@ export default function VendorDashboard() {
         </div>
 
         {/* Right side */}
-        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <div className="vd-topbar-right">
           <span style={{fontSize:12,fontWeight:600,padding:"4px 10px",borderRadius:20,background:sMeta.bg,color:sMeta.color}}>
             {sMeta.label}
           </span>
@@ -270,12 +366,12 @@ export default function VendorDashboard() {
       </div>
 
       {/* ── Page body ── */}
-      <div style={{maxWidth:860,margin:"0 auto",padding:"28px 20px"}}>
+      <div className="vd-body">
 
         {/* ── OVERVIEW ── */}
         {tab === "overview" && (
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+            <div className="vd-grid-4">
               {[
                 { label:"Status",       value: sMeta.label },
                 { label:"Completion",   value:`${completion}%`, progress:true },
@@ -296,7 +392,7 @@ export default function VendorDashboard() {
 
             <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"20px 22px"}}>
               <div style={{fontWeight:600,fontSize:14,marginBottom:14,color:"#1a1a1a"}}>Profile Summary</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+              <div className="vd-grid-3">
                 {profileFields.map(f => (
                   <div key={f.key}>
                     <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>{f.label}</div>
@@ -314,7 +410,7 @@ export default function VendorDashboard() {
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
       <div style={{fontWeight:600,fontSize:14}}>My Profile</div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
+    <div className="vd-grid-2">
       {profileFields.map(f => (
         <div key={f.key}>
           <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{f.label}</div>
@@ -343,7 +439,7 @@ export default function VendorDashboard() {
             </div>
             {subEntries.length === 0
               ? <Empty icon="📋" text="No form data submitted yet." />
-              : <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
+              : <div className="vd-grid-2">
                   {subEntries.map(e => (
                     <div key={e.key}>
                       <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{e.label}</div>
@@ -411,7 +507,7 @@ export default function VendorDashboard() {
                       <div key={enq._id} className="vd-enq"
                         style={{border:"1px solid #f0ede8",borderRadius:11,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10,transition:"border-color .15s",background:"#fff"}}>
                         {/* Header */}
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div className="vd-enq-header">
                           <div style={{display:"flex",alignItems:"center",gap:10}}>
                             <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#c2894b,#8b5e3c)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:600,fontSize:14,flexShrink:0}}>
                               {(enq.name||"U").charAt(0).toUpperCase()}
@@ -421,7 +517,7 @@ export default function VendorDashboard() {
                               <div style={{fontSize:11,color:"#6b7280",marginTop:1}}>{enq.phone}{enq.email?` · ${enq.email}`:""}</div>
                             </div>
                           </div>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                          <div className="vd-enq-meta">
                             <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:em.bg,color:em.c}}>{em.label}</span>
                             <span style={{fontSize:11,color:"#9ca3af"}}>{new Date(enq.createdAt).toLocaleDateString()}</span>
                           </div>
@@ -442,7 +538,7 @@ export default function VendorDashboard() {
                         {/* Body */}
                         {!enq.contactViewed ? (
                           <>
-                            <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+                            <div className="vd-enq-details">
                               {[["Event",enq.eventType],["Date",enq.eventDate?new Date(enq.eventDate).toLocaleDateString():null],["Guests",enq.guestCount],["Budget",enq.budget]]
                                 .filter(([,v])=>v).map(([l,v])=>(
                                 <div key={l} style={{fontSize:12}}>
@@ -467,6 +563,193 @@ export default function VendorDashboard() {
                   })}
                 </div>
             }
+          </div>
+        )}
+
+        {/* ── MY PLAN ── */}
+        {tab === "myplan" && (
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {loadingSub
+              ? <div style={{textAlign:"center",padding:"40px 0",color:"#9ca3af",fontSize:13}}>Loading…</div>
+              : !subscription
+              ? <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+                  <Empty icon="📦" text="No active subscription. Choose a plan to get started." />
+                  <div style={{textAlign:"center",marginTop:4}}>
+                    <button className="vd-btn" onClick={() => navigate("/wedding-shop/plans")}
+                      style={{background:"#c2894b",color:"#fff"}}>Browse Plans</button>
+                  </div>
+                </div>
+              : <>
+                  {/* Plan header card */}
+                  <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <div style={{width:42,height:42,borderRadius:"50%",background:"linear-gradient(135deg,#c2894b,#8b5e3c)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:600,fontSize:18,flexShrink:0}}>
+                          👑
+                        </div>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:16,color:"#1a1a1a"}}>{subscription.planId?.planName || "—"}</div>
+                          <div style={{fontSize:12,color:"#6b7280",marginTop:2,textTransform:"capitalize"}}>
+                            {subscription.planId?.planCode || ""} · {subscription.planId?.billingCycle || ""}
+                          </div>
+                        </div>
+                      </div>
+                      {(() => {
+                        const ss = SUB_STATUS[subscription.status] || SUB_STATUS.CANCELLED;
+                        return <span style={{fontSize:12,fontWeight:700,padding:"4px 12px",borderRadius:20,background:ss.bg,color:ss.color}}>{ss.label}</span>;
+                      })()}
+                    </div>
+
+                    {/* Details grid */}
+                    <div className="vd-grid-3">
+                      {[
+                        { label: "Price", value: subscription.planId?.price != null ? `${subscription.planId.price.toFixed(2)} USD` : "—" },
+                        { label: "Amount Paid", value: subscription.amountPaid != null ? `${subscription.amountPaid.toFixed(2)} USD` : "—" },
+                        { label: "Payment Status", value: subscription.paymentStatus || "—" },
+                        { label: "Period Start", value: subscription.currentPeriodStart ? new Date(subscription.currentPeriodStart).toLocaleDateString() : "—" },
+                        { label: "Period End", value: subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "—" },
+                        { label: "Days Remaining", value: (() => {
+                          if (!subscription.currentPeriodEnd || subscription.status !== "ACTIVE") return "—";
+                          const diff = Math.ceil((new Date(subscription.currentPeriodEnd) - new Date()) / (1000 * 60 * 60 * 24));
+                          return diff > 0 ? `${diff} days` : "Expired";
+                        })() },
+                      ].map(f => (
+                        <div key={f.label}>
+                          <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>{f.label}</div>
+                          <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a",padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{f.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Payment ID */}
+                  {subscription.paymentId && (
+                    <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:14}}>🧾</span>
+                      <div>
+                        <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Payment ID</div>
+                        <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a",wordBreak:"break-all"}}>{subscription.paymentId}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Features list */}
+                  {subscription.planId?.features?.length > 0 && (
+                    <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+                      <div style={{fontWeight:600,fontSize:14,marginBottom:14,color:"#1a1a1a"}}>Plan Features</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {subscription.planId.features.map((feat, i) => (
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>
+                            <span style={{color:"#16a34a",fontSize:14,flexShrink:0}}>✓</span>
+                            <span style={{fontSize:13,color:"#374151"}}>{feat}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subscription timestamps */}
+                  <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"16px 20px"}}>
+                    <div className="vd-grid-2">
+                      <div>
+                        <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Subscribed On</div>
+                        <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a"}}>{subscription.createdAt ? new Date(subscription.createdAt).toLocaleString() : "—"}</div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Last Updated</div>
+                        <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a"}}>{subscription.updatedAt ? new Date(subscription.updatedAt).toLocaleString() : "—"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+            }
+          </div>
+        )}
+
+        {/* ── PAYMENTS ── */}
+        {tab === "payments" && (
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                <div style={{fontWeight:600,fontSize:14}}>Payment History</div>
+                {transactions.length > 0 && (
+                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:"#f0fdf4",color:"#16a34a"}}>
+                    {transactions.filter(t => t.status === "COMPLETED").length} completed
+                  </span>
+                )}
+              </div>
+
+              {loadingT
+                ? <div style={{textAlign:"center",padding:"40px 0",color:"#9ca3af",fontSize:13}}>Loading…</div>
+                : transactions.length === 0
+                ? <Empty icon="💳" text="No payment transactions yet." />
+                : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {transactions.map(txn => {
+                      const ts = TXN_STATUS[txn.status] || { label: txn.status, color: "#6b7280", bg: "#f9fafb" };
+                      const planName = txn.planId?.planName || "—";
+                      const billingCycle = txn.planId?.billingCycle || "";
+                      return (
+                        <div key={txn._id} className="vd-enq"
+                          style={{border:"1px solid #f0ede8",borderRadius:11,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10,transition:"border-color .15s",background:"#fff"}}>
+                          {/* Header row */}
+                          <div className="vd-enq-header">
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#c2894b,#8b5e3c)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:600,fontSize:16,flexShrink:0}}>
+                                💳
+                              </div>
+                              <div>
+                                <div style={{fontWeight:600,fontSize:13,color:"#1a1a1a"}}>{planName}</div>
+                                <div style={{fontSize:11,color:"#6b7280",marginTop:1,textTransform:"capitalize"}}>
+                                  {billingCycle}{txn.transactionType ? ` · ${toTitle(txn.transactionType)}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="vd-enq-meta">
+                              <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:ts.bg,color:ts.color}}>{ts.label}</span>
+                              <span style={{fontSize:11,color:"#9ca3af"}}>{new Date(txn.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+
+                          {/* Details row */}
+                          <div className="vd-enq-details">
+                            {[[
+                              "Amount",
+                              txn.amount != null ? `${txn.currency || "USD"} ${txn.amount.toFixed(2)}` : null
+                            ],[
+                              "Gateway", txn.paymentGateway
+                            ],[
+                              "Order ID", txn.gatewayOrderId
+                            ]].filter(([,v]) => v).map(([l, v]) => (
+                              <div key={l} style={{fontSize:12}}>
+                                <span style={{color:"#9ca3af"}}>{l}: </span>
+                                <span style={{fontWeight:600,color:"#374151"}}>{v}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Coupon pill */}
+                          {txn.appliedCoupon?.code && (
+                            <div style={{display:"flex",alignItems:"center",gap:7,background:"#f5f3ff",borderRadius:7,padding:"5px 9px",border:"1px solid #e9e5ff"}}>
+                              <span style={{fontSize:13}}>🏷️</span>
+                              <span style={{fontSize:11,color:"#6b7280"}}>
+                                <b>Coupon:</b> {txn.appliedCoupon.code}
+                                {txn.appliedCoupon.discountAmount ? ` (−${txn.appliedCoupon.discountAmount})` : ""}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Failure reason */}
+                          {txn.failureReason && (
+                            <div style={{fontSize:12,color:"#dc2626",background:"#fef2f2",borderRadius:8,padding:"8px 12px",border:"1px solid #fecaca"}}>
+                              ⚠️ {txn.failureReason}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+              }
+            </div>
           </div>
         )}
 
