@@ -128,28 +128,35 @@ export default function VendorDashboard() {
     return catField?.options || [];
   }, [formConfig]);
 
+  const [slotLoading, setSlotLoading] = useState({});
+
+  const fetchVendorData = async (silent = false) => {
+    const token = localStorage.getItem("vendorToken");
+    if (!token) { navigate("/wedding-shop/vendor-auth"); return; }
+    if (!silent) setLoading(true);
+    try {
+      const r = await fetch(`${API_URL}/vendor/me`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      if (!r.ok || !d?.success) throw new Error();
+
+      if (!d.data?.hasActiveSubscription) {
+        navigate("/plans", { replace: true });
+        return;
+      }
+
+      setVendor(d.data);
+    } catch (e) {
+      console.error(e);
+      localStorage.removeItem("vendorToken");
+      navigate("/wedding-shop/vendor-auth");
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
   /* fetch vendor + subscription guard */
   useEffect(() => {
-    (async () => {
-      const token = localStorage.getItem("vendorToken");
-      if (!token) { navigate("/wedding-shop/vendor-auth"); return; }
-      try {
-        const r = await fetch(`${API_URL}/vendor/me`, { headers: { Authorization: `Bearer ${token}` } });
-        const d = await r.json();
-        if (!r.ok || !d?.success) throw new Error();
-
-        // Subscription guard: redirect to plans if no active subscription
-        if (!d.data?.hasActiveSubscription) {
-          navigate("/plans", { replace: true });
-          return;
-        }
-
-        setVendor(d.data);
-      } catch {
-        localStorage.removeItem("vendorToken");
-        navigate("/wedding-shop/vendor-auth");
-      } finally { setLoading(false); }
-    })();
+    fetchVendorData();
   }, [navigate]);
 
   useEffect(() => {
@@ -280,6 +287,88 @@ useEffect(() => {
       localStorage.setItem("vendorData", JSON.stringify(d.data||{}));
       setEditProfile(false);
     } catch(e) { toast.error(e.message); } finally { setSavingP(false); }
+  };
+
+  const handleUploadSlot = async (file, index) => {
+    if (!file) return;
+
+    // File validation
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+    const fileType = file.type || "";
+    const isAllowed = allowedTypes.includes(fileType) || file.name.match(/\.(jpg|jpeg|png|webp)$/i);
+    
+    if (!isAllowed) {
+      toast.error("Unsupported file format! Please upload jpg, jpeg, png, or webp.");
+      return;
+    }
+
+    const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+    if (file.size > MAX_SIZE) {
+      toast.error("File is too large! Maximum limit is 2MB.");
+      return;
+    }
+
+    setSlotLoading(prev => ({ ...prev, [index]: true }));
+    const token = localStorage.getItem("vendorToken");
+    const body = new FormData();
+    body.append("fieldKey", "gallery");
+    body.append("file", file);
+    body.append("index", index);
+
+    try {
+      const res = await fetch(`${API_URL}/vendor-submissions/vendor_onboarding/upload`, {
+        method: "POST",
+        body,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success(`Image uploaded successfully in slot ${index + 1}!`);
+        await fetchVendorData(true); // silent refresh
+      } else {
+        toast.error(data.message || "Failed to upload image.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred during file upload.");
+    } finally {
+      setSlotLoading(prev => ({ ...prev, [index]: false }));
+    }
+  };
+
+  const handleDeleteSlot = async (index, fileMeta) => {
+    if (!fileMeta || !fileMeta.publicId) return;
+
+    setSlotLoading(prev => ({ ...prev, [index]: true }));
+    const token = localStorage.getItem("vendorToken");
+
+    try {
+      const res = await fetch(`${API_URL}/vendor-submissions/vendor_onboarding/upload/delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fieldKey: "gallery",
+          index: index,
+          publicId: fileMeta.publicId,
+          resourceType: fileMeta.resourceType || "image",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success(`Image in slot ${index + 1} deleted successfully.`);
+        await fetchVendorData(true); // silent refresh
+      } else {
+        toast.error(data.message || "Failed to delete image.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred during file deletion.");
+    } finally {
+      setSlotLoading(prev => ({ ...prev, [index]: false }));
+    }
   };
 
   const handleSaveForm = async () => {
@@ -545,6 +634,153 @@ const handlePostReply = async (reviewId) => {
           .vd-btn{font-size:12px;padding:7px 12px}
           .vd-enq-details{flex-direction:column;gap:6px}
         }
+
+        /* ── Premium Image Slots Gallery ── */
+        .img-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 16px;
+          margin-top: 12px;
+          margin-bottom: 24px;
+        }
+        .img-slot {
+          position: relative;
+          aspect-ratio: 1;
+          border-radius: 12px;
+          overflow: hidden;
+          background: #fafaf8;
+          border: 2px dashed #e2e0da;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          user-select: none;
+        }
+        .img-slot:hover {
+          border-color: #c2894b;
+          background: #fdfaf7;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(194, 137, 75, 0.08);
+        }
+        .img-slot-filled {
+          border: 1px solid #f0ede8;
+          border-style: solid;
+          cursor: default;
+        }
+        .img-slot-filled:hover {
+          transform: none;
+          box-shadow: none;
+        }
+        .img-preview {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s;
+        }
+        .img-slot-filled:hover .img-preview {
+          transform: scale(1.05);
+        }
+        .img-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          opacity: 0;
+          transition: opacity 0.2s;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .img-slot-filled:hover .img-overlay {
+          opacity: 1;
+        }
+        .img-btn {
+          border: none;
+          cursor: pointer;
+          font-family: inherit;
+          font-size: 11px;
+          font-weight: 600;
+          border-radius: 6px;
+          padding: 6px 12px;
+          transition: all 0.15s;
+          color: #fff;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .img-btn-replace {
+          background: rgba(255, 255, 255, 0.25);
+          backdrop-filter: blur(4px);
+          border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .img-btn-replace:hover {
+          background: rgba(255, 255, 255, 0.35);
+        }
+        .img-btn-delete {
+          background: #dc2626;
+        }
+        .img-btn-delete:hover {
+          background: #b91c1c;
+        }
+        .img-label-slot {
+          position: absolute;
+          bottom: 8px;
+          left: 8px;
+          background: rgba(0, 0, 0, 0.6);
+          color: #fff;
+          font-size: 9px;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 4px;
+          backdrop-filter: blur(2px);
+          z-index: 1;
+        }
+        .img-loading-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid rgba(194, 137, 75, 0.2);
+          border-top-color: #c2894b;
+          border-radius: 50%;
+          animation: spin .7s linear infinite;
+        }
+        .img-upload-icon {
+          font-size: 20px;
+          color: #a3a39e;
+          margin-bottom: 4px;
+          transition: color 0.2s;
+        }
+        .img-slot:hover .img-upload-icon {
+          color: #c2894b;
+        }
+        .img-upload-text {
+          font-size: 11px;
+          font-weight: 500;
+          color: #73736d;
+          transition: color 0.2s;
+        }
+        .img-slot:hover .img-upload-text {
+          color: #c2894b;
+        }
+        @media(max-width: 900px) {
+          .img-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+        @media(max-width: 768px) {
+          .img-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+          }
+        }
+        @media(max-width: 480px) {
+          .img-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+        }
       `}</style>
 
       {/* ── Top bar ── */}
@@ -695,29 +931,155 @@ const handlePostReply = async (reviewId) => {
         )}
 
         {/* ── DOCUMENTS ── */}
-        {tab === "documents" && (
-          <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
-            <div style={{fontWeight:600,fontSize:14,marginBottom:16}}>Documents</div>
-            {docFiles.length === 0
-              ? <Empty icon="📎" text="No documents uploaded yet." />
-              : <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {docFiles.map(f => (
-                    <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="vd-row"
-                      style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 13px",borderRadius:10,border:"1px solid #f0ede8",textDecoration:"none",background:"#fafaf8",transition:"background .15s"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{width:30,height:30,borderRadius:7,background:"#fdf8f3",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📄</div>
-                        <div>
-                          <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a"}}>{f.name}</div>
-                          <div style={{fontSize:11,color:"#9ca3af",marginTop:1}}>{toTitle(f.fieldKey)}</div>
-                        </div>
-                      </div>
-                      <span style={{fontSize:12,color:"#c2894b",fontWeight:600}}>View →</span>
-                    </a>
-                  ))}
-                </div>
+        {tab === "documents" && (() => {
+          // Parse gallery files (up to 10 slots)
+          const f = vendor?.submission?.uploadedFiles?.gallery;
+          const galleryFiles = Array.isArray(f) ? [...f] : f ? [f] : [];
+          while (galleryFiles.length < 10) galleryFiles.push(null);
+          
+          // Parse other non-gallery files
+          const otherFiles = [];
+          const filesMap = vendor?.submission?.uploadedFiles || {};
+          Object.entries(filesMap).forEach(([fk, vals]) => {
+            if (fk === "gallery") return;
+            if (Array.isArray(vals)) {
+              vals.forEach((file, i) => {
+                if (file) {
+                  otherFiles.push({
+                    id: `${fk}-${i}`,
+                    fieldKey: fk,
+                    name: file.name || `${toTitle(fk)} File ${i + 1}`,
+                    url: file.url?.startsWith("http") ? file.url : `${API_ORIGIN}${file.url || ""}`,
+                  });
+                }
+              });
+            } else if (vals) {
+              otherFiles.push({
+                id: `${fk}-0`,
+                fieldKey: fk,
+                name: vals.name || toTitle(fk),
+                url: vals.url?.startsWith("http") ? vals.url : `${API_ORIGIN}${vals.url || ""}`,
+              });
             }
-          </div>
-        )}
+          });
+
+          const totalUploaded = galleryFiles.filter(Boolean).length;
+
+          return (
+            <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontWeight:600,fontSize:14,color:"#1a1a1a"}}>Portfolio Gallery</div>
+                <span style={{fontSize:12,fontWeight:600,color:"#c2894b",background:"#fdf8f3",padding:"4px 10px",borderRadius:20,border:"1px solid #e8d5bc"}}>
+                  {totalUploaded} / 10 Images
+                </span>
+              </div>
+              <p style={{fontSize:12,color:"#6b7280",margin:"0 0 16px"}}>
+                Upload up to 10 high-quality images. Allowed formats: JPG, JPEG, PNG, WEBP. Max size: 2MB per file.
+              </p>
+
+              {/* Grid of 10 slots */}
+              <div className="img-grid">
+                {galleryFiles.map((file, idx) => {
+                  const isLoading = !!slotLoading[idx];
+                  const url = file?.url?.startsWith("http") ? file.url : file?.url ? `${API_ORIGIN}${file.url}` : null;
+                  
+                  if (isLoading) {
+                    return (
+                      <div key={idx} className="img-slot img-slot-filled" style={{pointerEvents:"none"}}>
+                        <div className="img-loading-spinner" />
+                        <span className="img-label-slot">Slot {idx + 1}</span>
+                      </div>
+                    );
+                  }
+
+                  if (url) {
+                    return (
+                      <div key={idx} className="img-slot img-slot-filled">
+                        <img src={url} alt={`Gallery slot ${idx + 1}`} className="img-preview" />
+                        <span className="img-label-slot">Slot {idx + 1}</span>
+                        <div className="img-overlay">
+                          <button
+                            type="button"
+                            className="img-btn img-btn-replace"
+                            onClick={() => document.getElementById(`gallery-upload-${idx}`).click()}
+                          >
+                            🔄 Replace
+                          </button>
+                          <button
+                            type="button"
+                            className="img-btn img-btn-delete"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete the image in Slot ${idx + 1}?`)) {
+                                handleDeleteSlot(idx, file);
+                              }
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                        {/* Hidden file input for Replace */}
+                        <input
+                          type="file"
+                          id={`gallery-upload-${idx}`}
+                          style={{ display: "none" }}
+                          accept="image/jpeg,image/png,image/webp,image/jpg"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleUploadSlot(e.target.files[0], idx);
+                            }
+                            e.target.value = "";
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={idx} className="img-slot" onClick={() => document.getElementById(`gallery-upload-${idx}`).click()}>
+                      <div className="img-upload-icon">📸</div>
+                      <div className="img-upload-text">Upload Image</div>
+                      <span className="img-label-slot" style={{background:"rgba(0, 0, 0, 0.4)"}}>Slot {idx + 1}</span>
+                      <input
+                        type="file"
+                        id={`gallery-upload-${idx}`}
+                        style={{ display: "none" }}
+                        accept="image/jpeg,image/png,image/webp,image/jpg"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleUploadSlot(e.target.files[0], idx);
+                          }
+                          e.target.value = "";
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Other Documents Section */}
+              {otherFiles.length > 0 && (
+                <div style={{marginTop:32,borderTop:"1px solid #f0ede8",paddingTop:20}}>
+                  <div style={{fontWeight:600,fontSize:14,color:"#1a1a1a",marginBottom:12}}>Other Verification Documents</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {otherFiles.map(f => (
+                      <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="vd-row"
+                        style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 13px",borderRadius:10,border:"1px solid #f0ede8",textDecoration:"none",background:"#fafaf8",transition:"background .15s"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:30,height:30,borderRadius:7,background:"#fdf8f3",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📄</div>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:500,color:"#1a1a1a"}}>{f.name}</div>
+                            <div style={{fontSize:11,color:"#9ca3af",marginTop:1}}>{toTitle(f.fieldKey)}</div>
+                          </div>
+                        </div>
+                        <span style={{fontSize:12,color:"#c2894b",fontWeight:600}}>View →</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── ENQUIRIES ── */}
         {tab === "enquiries" && (
