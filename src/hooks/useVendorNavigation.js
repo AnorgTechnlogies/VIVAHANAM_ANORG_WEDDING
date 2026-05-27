@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
 const isRegisteredVendor = (vendor = {}) => {
   const status = vendor.registrationStatus || null;
   const hasSubmittedData =
-    status === "submitted" &&
+    (status === "submitted" || status === "payment_pending") &&
     vendor?.submission?.data &&
     Object.keys(vendor.submission.data).length > 0;
 
@@ -55,11 +55,11 @@ export default function useVendorNavigation() {
       // Step 1: Not registered → go to registration form
       if (!registered) return "/wedding-shop/vendor-register";
 
-      // Step 2: Registered but no active subscription → go to plans
+      // Step 2: Registered but no active subscription or payment pending → go to plans
       const hasSub = Boolean(vendor.hasActiveSubscription);
       setHasActiveSubscription(hasSub);
 
-      if (!hasSub) return "/plans";
+      if (vendor.registrationStatus === "payment_pending" || !hasSub) return "/plans";
 
       // Step 3: Registered + active subscription → go to dashboard
       return fromGatekeeper ? "/wedding-shop/vendor/dashboard" : "/wedding-shop/vendor-auth";

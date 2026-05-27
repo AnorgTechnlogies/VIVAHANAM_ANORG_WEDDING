@@ -23,7 +23,7 @@ const SearchBar = ({ onSearch }) => {
           .find((field) => field?.key === "category");
         const configLocations = formData?.data?.locations || [];
 
-        const categoryOptions = (categoryField?.options || []).map((option) => ({
+        let categoryOptions = (categoryField?.options || []).map((option) => ({
           value: option?.value || option?.label || "",
           label: option?.label || option?.value || "",
         })).filter((option) => option.value && option.label);
@@ -49,19 +49,32 @@ const SearchBar = ({ onSearch }) => {
         });
 
         if (categoryOptions.length > 0) {
+          // Sort categories alphabetically by label
+          categoryOptions = categoryOptions.sort((a, b) => 
+            a.label.localeCompare(b.label)
+          );
           setCategories(categoryOptions);
         } else {
           const catRes = await fetch(`${API_BASE}/categories`);
           const catData = await catRes.json().catch(() => ({}));
-          setCategories(
-            (catData?.data || []).map((item) => ({
-              value: item?.value || item?.name || item?.label || "",
-              label: item?.label || item?.name || item?.value || "",
-            })).filter((item) => item.value && item.label)
+          let categoriesData = (catData?.data || []).map((item) => ({
+            value: item?.value || item?.name || item?.label || "",
+            label: item?.label || item?.name || item?.value || "",
+          })).filter((item) => item.value && item.label);
+          
+          // Sort categories alphabetically by label
+          categoriesData = categoriesData.sort((a, b) => 
+            a.label.localeCompare(b.label)
           );
+          setCategories(categoriesData);
         }
 
-        setLocations(Array.from(locationMap.values()));
+        // Sort locations alphabetically by label
+        let locationsArray = Array.from(locationMap.values());
+        locationsArray = locationsArray.sort((a, b) => 
+          a.label.localeCompare(b.label)
+        );
+        setLocations(locationsArray);
       } catch (error) {
         console.error("Failed to load search filters", error);
       }

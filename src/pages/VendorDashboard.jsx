@@ -16,6 +16,26 @@ const STATUS = {
 const toTitle = (v = "") =>
   v.toString().replace(/_/g, " ").trim().replace(/\b\w/g, (s) => s.toUpperCase());
 
+const isFieldUneditable = (key = "") => {
+  const k = key.toLowerCase();
+  return (
+    k === "city" ||
+    k === "state" ||
+    k === "category" ||
+    k === "services" ||
+    k === "email" ||
+    k === "mobile" ||
+    k === "phone" ||
+    k.includes("city") ||
+    k.includes("state") ||
+    k.includes("category") ||
+    k.includes("services") ||
+    k.includes("email") ||
+    k.includes("mobile") ||
+    k.includes("phone")
+  );
+};
+
 const fmt = (v) => {
   if (v === null || v === undefined || v === "") return "—";
   if (Array.isArray(v)) return v.join(", ");
@@ -29,6 +49,7 @@ const TABS = [
   { id: "submission", label: "Form" },
   { id: "documents",  label: "Documents" },
   { id: "enquiries",  label: "Enquiries" },
+  { id: "review",     label: "Review" },
   { id: "myplan",     label: "My Plan" },
   { id: "payments",   label: "Payments" },
 ];
@@ -71,6 +92,13 @@ export default function VendorDashboard() {
 
   const [subscription, setSubscription] = useState(null);
   const [loadingSub, setLoadingSub]     = useState(false);
+
+  // Review data states
+  const [reviews, setReviews]           = useState([]);
+  const [loadingR, setLoadingR]         = useState(false);
+  const [ratingSummary, setRatingSummary] = useState(null);
+  const [replyingTo, setReplyingTo]     = useState(null);
+  const [replyText, setReplyText]       = useState("");
 
   const [formConfig, setFormConfig]   = useState(null);
   const [states, setStates]           = useState([]);
@@ -155,6 +183,25 @@ export default function VendorDashboard() {
       .then(r => r.json()).then(d => { if (d.success) setEnquiries(d.data); })
       .catch(console.error).finally(() => setLoadingE(false));
   }, [tab]);
+
+ /* fetch reviews for vendor dashboard */
+useEffect(() => {
+  if (tab !== "review") return;
+  const token = localStorage.getItem("vendorToken");
+  if (!token) return;
+  setLoadingR(true);
+  // UPDATED URL - added /vendors/ prefix
+  fetch(`${API_URL}/vendors/vendor/my-reviews`, { 
+    headers: { Authorization: `Bearer ${token}` } 
+  })
+    .then(r => r.json()).then(d => { 
+      if (d.success) {
+        setReviews(d.data || []);
+        if (d.summary) setRatingSummary(d.summary);
+      }
+    })
+    .catch(console.error).finally(() => setLoadingR(false));
+}, [tab]);
 
   /* fetch payment transactions */
   useEffect(() => {
@@ -253,6 +300,65 @@ export default function VendorDashboard() {
     } catch(e) { toast.error(e.message); } finally { setSavingF(false); }
   };
 
+  // Handle posting a reply to a review
+// Handle posting a reply to a review
+const handlePostReply = async (reviewId) => {
+  if (!replyText.trim()) {
+    toast.error("Please enter a reply");
+    return;
+  }
+  
+  const token = localStorage.getItem("vendorToken");
+  setReplyingTo(reviewId);
+  
+  try {
+    // UPDATED URL - added /vendors/ prefix
+    const res = await fetch(`${API_URL}/vendors/vendor/reviews/${reviewId}/reply`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json", 
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify({ vendorReply: replyText.trim() })
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      toast.success("Reply posted successfully");
+      setReviews(prev => prev.map(review => 
+        review._id === reviewId 
+          ? { ...review, vendorReply: replyText.trim(), vendorRepliedAt: new Date().toISOString() } 
+          : review
+      ));
+      setReplyText("");
+      setReplyingTo(null);
+    } else {
+      toast.error(data.message || "Failed to post reply");
+    }
+  } catch (err) {
+    console.error("Error posting reply:", err);
+    toast.error("Something went wrong");
+  } finally {
+    setReplyingTo(null);
+  }
+};
+
+  // Helper function to render star rating
+  const renderStars = (rating) => {
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    const stars = [];
+    for (let i = 0; i < fullStars; i++) stars.push("★");
+    if (hasHalfStar) stars.push("½");
+    while (stars.length < 5) stars.push("☆");
+    return (
+      <span style={{ color: "#f59e0b", fontSize: 14, letterSpacing: 1 }}>
+        {stars.join("")}
+      </span>
+    );
+  };
+
   /* ── Loading ── */
   if (loading) return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#fafaf8"}}>
@@ -265,6 +371,123 @@ export default function VendorDashboard() {
   const status = vendor.registrationStatus || "draft";
   const sMeta  = STATUS[status] || STATUS.draft;
   const initial = (vendor.brandName || "V").charAt(0).toUpperCase();
+
+  if (status === "submitted") {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #fffcf9 0%, #fff5f5 100%)",
+        fontFamily: "'Inter',system-ui,sans-serif",
+        color: "#1a1a1a",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "40px 20px",
+        boxSizing: "border-box"
+      }}>
+        <div style={{
+          background: "rgba(255, 255, 255, 0.8)",
+          backdropFilter: "blur(20px)",
+          borderRadius: 32,
+          padding: "50px 40px",
+          maxWidth: 600,
+          width: "100%",
+          boxShadow: "0 20px 40px rgba(139, 94, 60, 0.08)",
+          border: "1px solid rgba(255, 255, 255, 0.6)",
+          textAlign: "center",
+          boxSizing: "border-box"
+        }}>
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 40,
+            margin: "0 auto 24px",
+            animation: "pulse 2s infinite"
+          }}>
+            ⏳
+          </div>
+
+          <h2 style={{
+            fontSize: 28,
+            fontWeight: 800,
+            color: "#854d0e",
+            margin: "0 0 12px",
+            fontFamily: "'Playfair Display', serif"
+          }}>Application Under Review</h2>
+
+          <p style={{
+            fontSize: 15,
+            lineHeight: 1.6,
+            color: "#6b7280",
+            margin: "0 0 32px"
+          }}>
+            Thank you for completing your registration and subscription! Your application has been successfully submitted to our team for approval. We are verifying your details and will activate your profile shortly.
+          </p>
+
+          <div style={{
+            background: "#fffbeb",
+            borderRadius: 16,
+            padding: "16px 20px",
+            border: "1px solid #fde68a",
+            textAlign: "left",
+            marginBottom: 32
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#854d0e", marginBottom: 6 }}>
+              Onboarding Checklist:
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#16a34a", marginBottom: 6 }}>
+              <span>✓</span> Email Verification Completed
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#16a34a", marginBottom: 6 }}>
+              <span>✓</span> Profile Registration Completed
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#16a34a", marginBottom: 6 }}>
+              <span>✓</span> Payment / Plan Activated
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#d97706" }}>
+              <span style={{ display: "inline-block", animation: "spin_icon 1.5s linear infinite" }}>🔄</span> Admin Verification & Activation (Pending)
+            </div>
+          </div>
+
+          <button 
+            onClick={handleLogout}
+            style={{
+              background: "#1c1917",
+              color: "#fff",
+              border: "none",
+              borderRadius: 12,
+              padding: "12px 24px",
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "opacity 0.2s"
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+          >
+            Logout
+          </button>
+        </div>
+
+        <style>{`
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+          }
+          @keyframes spin_icon {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{minHeight:"100vh",background:"#fafaf8",fontFamily:"'Inter',system-ui,sans-serif",color:"#1a1a1a"}}>
@@ -333,7 +556,6 @@ export default function VendorDashboard() {
           </div>
           <div>
             <div style={{fontWeight:600,fontSize:14,lineHeight:1.2}}>{vendor.brandName || "Vendor"}</div>
-            <div style={{fontSize:11,color:"#9ca3af"}}>{vendor.vendorType || "—"}</div>
           </div>
         </div>
 
@@ -404,22 +626,22 @@ export default function VendorDashboard() {
           </div>
         )}
 
-     {/* ── PROFILE ── */}
-{tab === "profile" && (
-  <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-      <div style={{fontWeight:600,fontSize:14}}>My Profile</div>
-    </div>
-    <div className="vd-grid-2">
-      {profileFields.map(f => (
-        <div key={f.key}>
-          <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{f.label}</div>
-          <div style={{fontSize:13,color:"#1a1a1a",fontWeight:500,padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{f.value||"—"}</div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+        {/* ── PROFILE ── */}
+        {tab === "profile" && (
+          <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+              <div style={{fontWeight:600,fontSize:14}}>My Profile</div>
+            </div>
+            <div className="vd-grid-2">
+              {profileFields.map(f => (
+                <div key={f.key}>
+                  <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{f.label}</div>
+                  <div style={{fontSize:13,color:"#1a1a1a",fontWeight:500,padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{f.value||"—"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── SUBMISSION ── */}
         {tab === "submission" && (
@@ -444,7 +666,25 @@ export default function VendorDashboard() {
                     <div key={e.key}>
                       <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{e.label}</div>
                       {editForm
-                        ? <input className="vd-input" value={formData[e.key]??""} onChange={ev => setFormData(p=>({...p,[e.key]:ev.target.value}))} />
+                        ? (isFieldUneditable(e.key) ? (
+                            <div style={{position: "relative"}}>
+                              <input 
+                                className="vd-input" 
+                                value={formData[e.key]??""} 
+                                disabled={true} 
+                                style={{background:"#f5f5f4", color:"#a8a29e", cursor:"not-allowed", border:"1px solid #e7e5e4"}} 
+                              />
+                              <span style={{position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "#a8a29e", display: "flex", alignItems: "center", gap: 4}}>
+                                🔒 Locked
+                              </span>
+                            </div>
+                          ) : (
+                            <input 
+                              className="vd-input" 
+                              value={formData[e.key]??""} 
+                              onChange={ev => setFormData(p=>({...p,[e.key]:ev.target.value}))} 
+                            />
+                          ))
                         : <div style={{fontSize:13,color:"#1a1a1a",fontWeight:500,padding:"9px 12px",background:"#fafaf8",borderRadius:8,border:"1px solid #f0ede8"}}>{e.value}</div>
                       }
                     </div>
@@ -562,6 +802,177 @@ export default function VendorDashboard() {
                     );
                   })}
                 </div>
+            }
+          </div>
+        )}
+
+        {/* ── REVIEWS ── */}
+        {tab === "review" && (
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {loadingR
+              ? <div style={{textAlign:"center",padding:"40px 0",color:"#9ca3af",fontSize:13}}>Loading reviews…</div>
+              : reviews.length === 0
+              ? <Empty icon="⭐" text="No reviews yet. Customer feedback will appear here." />
+              : <>
+                  {/* Rating Summary Card */}
+                  {ratingSummary && ratingSummary.totalReviews > 0 && (
+                    <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontSize:36,fontWeight:700,color:"#1a1a1a"}}>{ratingSummary.averageRating.toFixed(1)}</div>
+                          <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>
+                            {renderStars(ratingSummary.averageRating)}
+                          </div>
+                          <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>Based on {ratingSummary.totalReviews} reviews</div>
+                        </div>
+                        <div style={{flex:1}}>
+                          {[5,4,3,2,1].map(star => {
+                            const count = ratingSummary.ratingDistribution?.[star] || 0;
+                            const percentage = ratingSummary.totalReviews > 0 ? (count / ratingSummary.totalReviews) * 100 : 0;
+                            return (
+                              <div key={star} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                                <span style={{fontSize:12,width:30}}>{star}★</span>
+                                <div style={{flex:1,height:6,background:"#f0ede8",borderRadius:3,overflow:"hidden"}}>
+                                  <div style={{width:`${percentage}%`,height:"100%",background:"#f59e0b",borderRadius:3}} />
+                                </div>
+                                <span style={{fontSize:11,color:"#6b7280",width:36}}>{count}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Individual Reviews */}
+                  <div style={{background:"#fff",border:"1px solid #f0ede8",borderRadius:12,padding:"22px 24px"}}>
+                    <div style={{fontWeight:600,fontSize:14,marginBottom:16}}>Customer Reviews</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                      {reviews.map(review => (
+                        <div key={review._id} className="vd-enq"
+                          style={{border:"1px solid #f0ede8",borderRadius:11,padding:"14px 16px",background:"#fff"}}>
+                          {/* Header */}
+                          <div className="vd-enq-header">
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#c2894b,#8b5e3c)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:600,fontSize:14,flexShrink:0}}>
+                                {(review.user?.name || "U").charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div style={{fontWeight:600,fontSize:13,color:"#1a1a1a"}}>{review.user?.name || "Anonymous"}</div>
+                                <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
+                                  {renderStars(review.rating)}
+                                  <span style={{fontSize:11,color:"#9ca3af"}}>· {new Date(review.createdAt).toLocaleDateString()}</span>
+                                  {review.isVerified && (
+                                    <span style={{fontSize:10,color:"#16a34a",background:"#f0fdf4",padding:"2px 6px",borderRadius:4}}>✓ Verified</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Review Title */}
+                          {review.title && (
+                            <div style={{fontWeight:600,fontSize:13,color:"#1a1a1a",marginTop:6}}>{review.title}</div>
+                          )}
+                          
+                          {/* Review Comment */}
+                          {review.comment && (
+                            <div style={{fontSize:13,color:"#4b5563",lineHeight:1.5,marginTop:4}}>
+                              {review.comment}
+                            </div>
+                          )}
+
+                          {/* Event Info */}
+                          {(review.eventDate || review.eventType) && (
+                            <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:"#6b7280",flexWrap:"wrap"}}>
+                              {review.eventType && <span>🎉 {toTitle(review.eventType)}</span>}
+                              {review.eventDate && <span>📅 {new Date(review.eventDate).toLocaleDateString()}</span>}
+                            </div>
+                          )}
+
+                          {/* Review Images */}
+                          {review.images && review.images.length > 0 && (
+                            <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                              {review.images.map((img, idx) => (
+                                <img
+                                  key={idx}
+                                  src={img.url?.startsWith("http") ? img.url : `${API_ORIGIN}${img.url}`}
+                                  alt="Review"
+                                  style={{width:60,height:60,objectFit:"cover",borderRadius:8,border:"1px solid #f0ede8",cursor:"pointer"}}
+                                  onClick={() => window.open(img.url?.startsWith("http") ? img.url : `${API_ORIGIN}${img.url}`, "_blank")}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Helpful Count */}
+                          {review.helpfulCount > 0 && (
+                            <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>
+                              👍 {review.helpfulCount} people found this helpful
+                            </div>
+                          )}
+
+                          {/* Vendor Reply */}
+                          {review.vendorReply && (
+                            <div style={{marginTop:10,background:"#fdf8f3",borderRadius:8,padding:"10px 12px",borderLeft:`3px solid #c2894b`}}>
+                              <div style={{fontSize:11,fontWeight:600,color:"#c2894b",marginBottom:4}}>
+                                Your Reply:
+                                {review.vendorRepliedAt && (
+                                  <span style={{fontSize:10,fontWeight:"normal",marginLeft:8,color:"#9ca3af"}}>
+                                    {new Date(review.vendorRepliedAt).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{fontSize:12,color:"#374151"}}>{review.vendorReply}</div>
+                            </div>
+                          )}
+
+                          {/* Reply Input (for vendor to respond) */}
+                          {!review.vendorReply && (
+                            <div style={{marginTop:10}}>
+                              {replyingTo === review._id ? (
+                                <div>
+                                  <textarea
+                                    placeholder="Write a reply to this review..."
+                                    value={replyText}
+                                    onChange={(e) => setReplyText(e.target.value)}
+                                    style={{width:"100%",fontFamily:"inherit",fontSize:12,padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:8,resize:"vertical",minHeight:60}}
+                                    autoFocus
+                                  />
+                                  <div style={{display:"flex",gap:8,marginTop:6}}>
+                                    <button
+                                      className="vd-btn"
+                                      onClick={() => handlePostReply(review._id)}
+                                      disabled={replyingTo === review._id}
+                                      style={{background:"#c2894b",color:"#fff",padding:"5px 12px",fontSize:12}}>
+                                      {replyingTo === review._id ? "Posting..." : "Post Reply"}
+                                    </button>
+                                    <button
+                                      className="vd-btn"
+                                      onClick={() => {
+                                        setReplyingTo(null);
+                                        setReplyText("");
+                                      }}
+                                      style={{background:"#f9fafb",color:"#6b7280",padding:"5px 12px",fontSize:12}}>
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  className="vd-btn"
+                                  onClick={() => setReplyingTo(review._id)}
+                                  style={{background:"#fdf8f3",color:"#c2894b",border:"1px solid #e8d5bc",padding:"5px 12px",fontSize:12}}>
+                                  Reply to Review
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
             }
           </div>
         )}
