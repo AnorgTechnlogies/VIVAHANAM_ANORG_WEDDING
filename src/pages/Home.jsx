@@ -31,69 +31,97 @@ const Home = () => {
   };
 
   useEffect(() => {
-  const fetchHomeData = async () => {
-    try {
-      const [catRes, vendorRes] = await Promise.all([
-        fetch(`${ROOT_API_BASE}/categories`),
-        fetch(`${API_BASE}/vendors?status=approved&limit=4`),
-      ]);
+    const fetchHomeData = async () => {
+      try {
+        const FORM_KEY = "vendor_onboarding";
+        const [formRes, vendorRes] = await Promise.all([
+          fetch(`${API_BASE}/marketplace/forms/${FORM_KEY}/config`),
+          fetch(`${API_BASE}/vendors?status=approved&limit=4`),
+        ]);
 
-      const catData = await catRes.json();
-      const vendorData = await vendorRes.json();
+        const formData = await formRes.json().catch(() => ({}));
+        const vendorData = await vendorRes.json().catch(() => ({}));
 
-      // Dynamic category images
-      const categoryImages = {
-        Venues:
-          "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=600&auto=format&fit=crop",
+        const sections = formData?.data?.sections || [];
+        const categoryField = sections
+          .flatMap((section) => section?.fields || [])
+          .find((field) => field?.key === "category");
 
-        Photographers:
-          "https://images.unsplash.com/photo-1606800052052-a08af7148866?q=80&w=600&auto=format&fit=crop",
+        let categoryOptions = [];
+        if (categoryField?.options && categoryField.options.length > 0) {
+          categoryOptions = categoryField.options.map((option) => ({
+            value: option?.value || option?.label || "",
+            label: option?.label || option?.value || "",
+          })).filter((option) => option.value && option.label);
+        }
 
-        Makeup:
-          "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?q=80&w=600&auto=format&fit=crop",
+        if (categoryOptions.length === 0) {
+          const catRes = await fetch(`${ROOT_API_BASE}/categories`);
+          const catData = await catRes.json().catch(() => ({}));
+          categoryOptions = (catData?.data || []).map((item) => ({
+            value: item?.value || item?.name || item?.label || "",
+            label: item?.label || item?.name || item?.value || "",
+          })).filter((item) => item.value && item.label);
+        }
 
-        "Bridal Wear":
-          "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=600&auto=format&fit=crop",
+        // Dynamic category images mapping
+        const categoryImages = {
+          venues: "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=600&auto=format&fit=crop",
+          photographers: "https://images.unsplash.com/photo-1606800052052-a08af7148866?q=80&w=600&auto=format&fit=crop",
+          photography: "https://images.unsplash.com/photo-1606800052052-a08af7148866?q=80&w=600&auto=format&fit=crop",
+          makeup: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?q=80&w=600&auto=format&fit=crop",
+          bridal: "https://images.unsplash.com/photo-1594552072238-b8a33785b261?q=80&w=600&auto=format&fit=crop",
+          clothing: "https://images.unsplash.com/photo-1594552072238-b8a33785b261?q=80&w=600&auto=format&fit=crop",
+          wear: "https://images.unsplash.com/photo-1594552072238-b8a33785b261?q=80&w=600&auto=format&fit=crop",
+          decorators: "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=600&auto=format&fit=crop",
+          decor: "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=600&auto=format&fit=crop",
+          mehndi: "https://images.unsplash.com/photo-1583097148529-57e05fc86bc9?q=80&w=600&auto=format&fit=crop",
+          mehendi: "https://images.unsplash.com/photo-1583097148529-57e05fc86bc9?q=80&w=600&auto=format&fit=crop",
+          catering: "https://images.unsplash.com/photo-1555244162-803834f70033?q=80&w=600&auto=format&fit=crop",
+          caterers: "https://images.unsplash.com/photo-1555244162-803834f70033?q=80&w=600&auto=format&fit=crop",
+          band: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=600&auto=format&fit=crop",
+          music: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=600&auto=format&fit=crop",
+          dj: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=600&auto=format&fit=crop",
+        };
 
-        Decorators:
-          "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=600&auto=format&fit=crop",
+        const finalCats = categoryOptions.map((cat) => {
+          const valLower = (cat.value || "").toLowerCase();
+          const lblLower = (cat.label || "").toLowerCase();
 
-        Mehndi:
-          "https://images.unsplash.com/photo-1583097148529-57e05fc86bc9?q=80&w=600&auto=format&fit=crop",
-      };
+          // Find case-insensitive substring match in categoryImages keys
+          let matchedImg = null;
+          for (const [key, url] of Object.entries(categoryImages)) {
+            if (valLower.includes(key) || lblLower.includes(key)) {
+              matchedImg = url;
+              break;
+            }
+          }
 
-      // Dynamic categories from DB only
-      let finalCats = [];
+          return {
+            ...cat,
+            name: cat.value,
+            label: cat.label,
+            image: matchedImg || "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=600&auto=format&fit=crop"
+          };
+        });
 
-      if (catData?.data && catData.data.length > 0) {
-        finalCats = catData.data.slice(0, 6).map((cat) => ({
-          ...cat,
+        // Featured Vendors
+        const finalVendors =
+          vendorData?.data && vendorData.data.length > 0
+            ? vendorData.data
+            : [];
 
-          image:
-            cat.image ||
-            categoryImages[cat.name] ||
-            "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=600&auto=format&fit=crop",
-        }));
+        setCategories(finalCats);
+        setFeaturedVendors(finalVendors);
+      } catch (error) {
+        console.error("Failed to load home data", error);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Featured Vendors
-      let finalVendors =
-        vendorData?.data && vendorData.data.length > 0
-          ? vendorData.data
-          : [];
-
-      setCategories(finalCats);
-      setFeaturedVendors(finalVendors);
-
-    } catch (error) {
-      console.error("Failed to load home data", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchHomeData();
-}, []);
+    fetchHomeData();
+  }, []);
 
   const handleSearch = ({ category, location }) => {
     const query = new URLSearchParams();
@@ -135,70 +163,69 @@ const Home = () => {
       </section>
 
       {/* Vendor Registration CTA Banner - Beautiful Version */}
-<section className="py-16 bg-gradient-to-br from-rose-50 via-white to-red-50 relative overflow-hidden">
-  {/* Decorative Background Elements */}
-  <div className="absolute inset-0 bg-[radial-gradient(#e11d48_0.8px,transparent_1px)] bg-[length:30px_30px] opacity-10"></div>
-  
-  <div className="max-w-6xl mx-auto px-4 relative z-10">
-    <div className="bg-white rounded-3xl p-10 md:p-16 shadow-xl shadow-red-100/50 border border-red-100 overflow-hidden relative">
-      
-      {/* Floating Decorative Elements */}
-      <div className="absolute -top-6 -right-6 w-24 h-24 bg-red-100/30 rounded-full blur-3xl"></div>
-      <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-rose-100/30 rounded-full blur-3xl"></div>
+      <section className="py-16 bg-gradient-to-br from-rose-50 via-white to-red-50 relative overflow-hidden">
+        {/* Decorative Background Elements */}
+        <div className="absolute inset-0 bg-[radial-gradient(#e11d48_0.8px,transparent_1px)] bg-[length:30px_30px] opacity-10"></div>
 
-      <div className="flex flex-col lg:flex-row items-center gap-12">
-        
-        {/* Left Content */}
-        <div className="flex-1 text-center lg:text-left">
-        
+        <div className="max-w-6xl mx-auto px-4 relative z-10">
+          <div className="bg-white rounded-3xl p-10 md:p-16 shadow-xl shadow-red-100/50 border border-red-100 overflow-hidden relative">
 
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight mb-6">
-            Grow Your Wedding Business
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-rose-600">
-              with USA #1 Platform
-            </span>
-          </h2>
+            {/* Floating Decorative Elements */}
+            <div className="absolute -top-6 -right-6 w-24 h-24 bg-red-100/30 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-rose-100/30 rounded-full blur-3xl"></div>
 
-          <p className="text-xl text-gray-600 max-w-lg">
-            Get discovered by thousands of couples, receive verified inquiries, 
-            and boost your bookings effortlessly.
-          </p>         
-        </div>
+            <div className="flex flex-col lg:flex-row items-center gap-12">
 
-        {/* Right Side - Visual + CTA */}
-        <div className="flex-shrink-0 flex flex-col items-center">
-          <div className="relative mb-8">
-            <div className="w-48 h-48 md:w-56 md:h-56 bg-gradient-to-br from-red-500 to-rose-500 rounded-3xl rotate-6 shadow-2xl flex items-center justify-center">
-              <div className="bg-white w-[92%] h-[92%] rounded-3xl flex items-center justify-center -rotate-6">
-                <div className="text-center">
-                  <div className="text-6xl mb-2">💍</div>
-                  <div className="text-red-600 font-bold text-xl">+450%</div>
-                  <div className="text-gray-500 text-sm">Average growth</div>
+              {/* Left Content */}
+              <div className="flex-1 text-center lg:text-left">
+
+
+                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight mb-6">
+                  Grow Your Wedding Business
+                  <span className="block text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-rose-600">
+                    with USA #1 Platform
+                  </span>
+                </h2>
+
+                <p className="text-xl text-gray-600 max-w-lg">
+                  Get discovered by thousands of couples, receive verified inquiries,
+                  and boost your bookings effortlessly.
+                </p>
+              </div>
+
+              {/* Right Side - Visual + CTA */}
+              <div className="flex-shrink-0 flex flex-col items-center">
+                <div className="relative mb-8">
+                  <div className="w-48 h-48 md:w-56 md:h-56 bg-gradient-to-br from-red-500 to-rose-500 rounded-3xl rotate-6 shadow-2xl flex items-center justify-center">
+                    <div className="bg-white w-[92%] h-[92%] rounded-3xl flex items-center justify-center -rotate-6">
+                      <div className="text-center">
+                        <div className="text-6xl mb-2">💍</div>
+                        <div className="text-red-600 font-bold text-xl">+450%</div>
+                        <div className="text-gray-500 text-sm">Average growth</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => handleVendorNavigation()}
+                  className="group relative bg-gradient-to-r from-red-600 to-rose-600 text-white px-10 py-5 rounded-2xl font-semibold text-xl shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all duration-300 hover:-translate-y-1 flex items-center gap-3 whitespace-nowrap overflow-hidden"
+                >
+                  <span>Register as a Vendor</span>
+                  <span className="group-hover:translate-x-1 transition-transform">→</span>
+
+                  {/* Shine effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-700"></div>
+                </button>
+
+                <p className="text-xs text-gray-400 mt-4">Takes only 2 minutes • Free to join</p>
               </div>
             </div>
           </div>
-
-          <button
-            onClick={() => handleVendorNavigation()}
-            className="group relative bg-gradient-to-r from-red-600 to-rose-600 text-white px-10 py-5 rounded-2xl font-semibold text-xl shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all duration-300 hover:-translate-y-1 flex items-center gap-3 whitespace-nowrap overflow-hidden"
-          >
-            <span>Register as a Vendor</span>
-            <span className="group-hover:translate-x-1 transition-transform">→</span>
-            
-            {/* Shine effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-700"></div>
-          </button>
-
-          <p className="text-xs text-gray-400 mt-4">Takes only 2 minutes • Free to join</p>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
 
       {/* Popular Categories - Auto Scroll Carousel */}
-     {/* Popular Categories - Auto Scroll Carousel */}
       <section className="py-16 max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-end mb-8">
           <div>
@@ -388,7 +415,7 @@ const Home = () => {
             </div>
           </div>
 
-         
+
         </div>
       </section>
 
