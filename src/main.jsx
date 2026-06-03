@@ -8,7 +8,7 @@ import 'react-toastify/dist/ReactToastify.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>   {/* ✅ WRAP APP */}
+<BrowserRouter basename="/shops">
       <App />
       <ToastContainer
         position="top-right"
@@ -23,5 +23,5 @@ createRoot(document.getElementById('root')).render(
         theme="colored"
       />
     </BrowserRouter>
-  </StrictMode>,
+  </StrictMode>
 )

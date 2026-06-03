@@ -26,7 +26,7 @@ export default function useVendorNavigation() {
       setIsVendorLoggedIn(false);
       setIsVendorRegistered(false);
       setHasActiveSubscription(false);
-      return "/wedding-shop/vendor-auth";
+      return "/vendor-auth";
     }
 
     setIsCheckingVendorStatus(true);
@@ -44,7 +44,7 @@ export default function useVendorNavigation() {
         setIsVendorLoggedIn(false);
         setIsVendorRegistered(false);
         setHasActiveSubscription(false);
-        return "/wedding-shop/vendor-auth";
+        return "/vendor-auth";
       }
 
       const vendor = data.data || {};
@@ -53,7 +53,7 @@ export default function useVendorNavigation() {
       setIsVendorRegistered(registered);
 
       // Step 1: Not registered → go to registration form
-      if (!registered) return "/wedding-shop/vendor-register";
+      if (!registered) return "/vendor-register";
 
       // Step 2: Registered but no active subscription or payment pending → go to plans
       const hasSub = Boolean(vendor.hasActiveSubscription);
@@ -62,12 +62,12 @@ export default function useVendorNavigation() {
       if (vendor.registrationStatus === "payment_pending" || !hasSub) return "/plans";
 
       // Step 3: Registered + active subscription → go to dashboard
-      return fromGatekeeper ? "/wedding-shop/vendor/dashboard" : "/wedding-shop/vendor-auth";
+      return fromGatekeeper ? "/vendor/dashboard" : "/vendor-auth";
     } catch (error) {
       setIsVendorLoggedIn(Boolean(localStorage.getItem("vendorToken")));
       setIsVendorRegistered(false);
       setHasActiveSubscription(false);
-      return "/wedding-shop/vendor-auth";
+      return "/vendor-auth";
     } finally {
       setIsCheckingVendorStatus(false);
     }

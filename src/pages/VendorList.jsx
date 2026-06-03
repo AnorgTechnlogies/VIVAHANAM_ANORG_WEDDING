@@ -97,7 +97,7 @@ const EmptyState = ({ onClearFilters }) => {
       {/* Buttons */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
         <button
-          onClick={() => navigate("/wedding-shop")}
+          onClick={() => navigate("")}
           style={{
             background: "#D4426A",
             color: "#fff",

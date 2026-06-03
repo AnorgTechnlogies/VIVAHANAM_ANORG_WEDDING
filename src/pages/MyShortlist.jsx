@@ -42,20 +42,20 @@ export default function MyShortlist() {
             <div style={{ fontSize: 48, marginBottom: 12 }}>❤️</div>
             <h3 style={{ fontSize: 20, color: "#2C2420" }}>No Saved Vendors</h3>
             <p style={{ color: "#7A6E6A", fontSize: 14, marginBottom: 24 }}>Click the heart icon on any vendor to save them here!</p>
-            <button onClick={() => navigate("/wedding-shop/vendors")} style={{ background: "#D4426A", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Browse Vendors</button>
+            <button onClick={() => navigate("/vendors")} style={{ background: "#D4426A", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Browse Vendors</button>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
             {vendors.map(v => (
               <div key={v._id} style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE0D8", overflow: "hidden" }}>
-                <div onClick={() => navigate(`/wedding-shop/vendors/${v._id}`)} style={{ height: 180, overflow: "hidden", cursor: "pointer", position: "relative" }}>
+                <div onClick={() => navigate(`/vendors/${v._id}`)} style={{ height: 180, overflow: "hidden", cursor: "pointer", position: "relative" }}>
                   <img src={v.image?.startsWith("http") ? v.image : `${API_BASE.replace("/api","")}${v.image}`} alt={v.name}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => e.target.style.display = "none"} />
                   <button onClick={e => { e.stopPropagation(); handleRemove(v.shortlistId); }}
                     style={{ position: "absolute", top: 12, right: 12, background: "rgba(255,255,255,.9)", border: "none", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 16 }}>❤️</button>
                 </div>
                 <div style={{ padding: 20 }}>
-                  <h3 onClick={() => navigate(`/wedding-shop/vendors/${v._id}`)} style={{ fontSize: 17, fontWeight: 700, color: "#2C2420", margin: "0 0 6px", cursor: "pointer" }}>{v.name}</h3>
+                  <h3 onClick={() => navigate(`/vendors/${v._id}`)} style={{ fontSize: 17, fontWeight: 700, color: "#2C2420", margin: "0 0 6px", cursor: "pointer" }}>{v.name}</h3>
                   <div style={{ fontSize: 13, color: "#7A6E6A", marginBottom: 8 }}>
                     📍 {v.location?.city || "N/A"}
                     {v.categories?.[0] && <span> · <span style={{ color: "#D4426A", textTransform: "capitalize" }}>{v.categories[0]}</span></span>}

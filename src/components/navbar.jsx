@@ -776,7 +776,7 @@ const handleHomeClick = () => {
 { name: "Home", href: `${MAIN_DOMAIN}/`, onClick: handleHomeClick, isRelative: false },    { name: "Services & Plan", href: `${MAIN_DOMAIN}/PlanHomePage`, isRelative: false },
     { name: "About Us", href: `${MAIN_DOMAIN}/about`, isRelative: false },
     { name: "Contact Us", href: `${MAIN_DOMAIN}/contact`, isRelative: false },
-    { name: "Wedding Services", href: "/shops", isRelative: true },
+    { name: "Wedding Services", href: "/", isRelative: true },
   ];
 
   // Helper function to render navigation links

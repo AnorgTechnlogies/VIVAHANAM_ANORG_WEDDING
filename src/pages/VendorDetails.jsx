@@ -132,7 +132,7 @@ const VendorDetails = () => {
       <div style={{ fontSize: 64, marginBottom: 16 }}>🔍</div>
       <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 32, color: "#2C2420" }}>Vendor Not Found</h2>
       <p style={{ color: "#7A6E6A", margin: "12px 0 32px" }}>The vendor you're looking for might have been removed.</p>
-      <button onClick={() => navigate("/wedding-shop/vendors")} style={{ background: "#D4426A", color: "#fff", border: "none", padding: "14px 32px", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
+      <button onClick={() => navigate("/vendors")} style={{ background: "#D4426A", color: "#fff", border: "none", padding: "14px 32px", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
         Back to Vendors
       </button>
     </div>
@@ -165,8 +165,8 @@ const VendorDetails = () => {
         <nav style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#7A6E6A", flexWrap: "wrap" }}>
           <span style={{ cursor: "pointer", color: "#D4426A" }} onClick={() => navigate("/")}>Home</span>
           <span>›</span>
-          <span style={{ cursor: "pointer", color: "#D4426A" }} onClick={() => navigate("/wedding-shop/vendors")}>{category}s</span>
-          {city && <><span>›</span><span style={{ cursor: "pointer", color: "#D4426A" }} onClick={() => navigate(`/wedding-shop/vendors?location=${city}`)}>{city}</span></>}
+          <span style={{ cursor: "pointer", color: "#D4426A" }} onClick={() => navigate("/vendors")}>{category}s</span>
+          {city && <><span>›</span><span style={{ cursor: "pointer", color: "#D4426A" }} onClick={() => navigate(`/vendors?location=${city}`)}>{city}</span></>}
           <span>›</span>
           <span style={{ color: "#2C2420", fontWeight: 500 }}>{vName}</span>
         </nav>

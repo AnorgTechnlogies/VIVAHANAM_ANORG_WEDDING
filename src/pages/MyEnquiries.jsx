@@ -43,7 +43,7 @@ export default function MyEnquiries() {
             <div style={{ fontSize: 48, marginBottom: 12 }}>📩</div>
             <h3 style={{ fontSize: 20, color: "#2C2420" }}>No Enquiries Yet</h3>
             <p style={{ color: "#7A6E6A", fontSize: 14, marginBottom: 24 }}>Start exploring vendors and send your first enquiry!</p>
-            <button onClick={() => navigate("/wedding-shop/vendors")} style={{ background: "#D4426A", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Browse Vendors</button>
+            <button onClick={() => navigate("/vendors")} style={{ background: "#D4426A", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Browse Vendors</button>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -57,7 +57,7 @@ export default function MyEnquiries() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                      <h3 onClick={() => navigate(`/wedding-shop/vendors/${v._id}`)} style={{ fontSize: 18, fontWeight: 700, color: "#2C2420", margin: 0, cursor: "pointer" }}>{v.name || "Vendor"}</h3>
+                      <h3 onClick={() => navigate(`/vendors/${v._id}`)} style={{ fontSize: 18, fontWeight: 700, color: "#2C2420", margin: 0, cursor: "pointer" }}>{v.name || "Vendor"}</h3>
                       <span style={{ background: s.bg, color: s.color, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{s.label}</span>
                     </div>
                     <div style={{ fontSize: 13, color: "#7A6E6A", marginBottom: 8 }}>

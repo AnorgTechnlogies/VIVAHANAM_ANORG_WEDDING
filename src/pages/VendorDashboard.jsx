@@ -133,7 +133,7 @@ export default function VendorDashboard() {
 
   const fetchVendorData = async (silent = false) => {
     const token = localStorage.getItem("vendorToken");
-    if (!token) { navigate("/wedding-shop/vendor-auth"); return; }
+    if (!token) { navigate("/vendor-auth"); return; }
     if (!silent) setLoading(true);
     try {
       const r = await fetch(`${API_URL}/vendor/me`, { headers: { Authorization: `Bearer ${token}` } });
@@ -149,7 +149,7 @@ export default function VendorDashboard() {
     } catch (e) {
       console.error(e);
       localStorage.removeItem("vendorToken");
-      navigate("/wedding-shop/vendor-auth");
+      navigate("/vendor-auth");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -1349,7 +1349,7 @@ export default function VendorDashboard() {
                 ? <div style={{ background: "#fff", border: "1px solid #f0ede8", borderRadius: 12, padding: "22px 24px" }}>
                   <Empty icon="📦" text="No active subscription. Choose a plan to get started." />
                   <div style={{ textAlign: "center", marginTop: 4 }}>
-                    <button className="vd-btn" onClick={() => navigate("/wedding-shop/plans")}
+                    <button className="vd-btn" onClick={() => navigate("/plans")}
                       style={{ background: "#c2894b", color: "#fff" }}>Browse Plans</button>
                   </div>
                 </div>

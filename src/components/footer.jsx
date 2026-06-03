@@ -31,7 +31,7 @@ const Footer = () => {
     { name: "Matchmaking Service", href: `${MAIN_DOMAIN}/payas` },
     { name: "Wedding Service", href: `${MAIN_DOMAIN}/subscription-plans` },
     { name: "Traditional Rituals", href: `${MAIN_DOMAIN}/` },
-    { name: "Wedding Shop", href: "/wedding-shop" }, // ✅ New module route
+    { name: "Wedding Shop", href: "" }, // ✅ New module route
   ];
 
   // Dynamic Social Media Links based on contactInfo

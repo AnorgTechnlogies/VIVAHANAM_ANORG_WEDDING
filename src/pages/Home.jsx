@@ -127,7 +127,7 @@ const Home = () => {
     const query = new URLSearchParams();
     if (category) query.set("category", category);
     if (location) query.set("location", location);
-    navigate(`/wedding-shop/vendors?${query.toString()}`);
+    navigate(`/vendors?${query.toString()}`);
   };
 
   return (
@@ -233,7 +233,7 @@ const Home = () => {
             <p className="text-gray-600 mt-2">Browse through some of the most requested categories</p>
           </div>
           <button
-            onClick={() => navigate("/wedding-shop/vendors")}
+            onClick={() => navigate("/vendors")}
             className="text-red-600 font-semibold hover:text-red-800 hidden md:block"
           >
             View All Categories &rarr;
@@ -251,7 +251,7 @@ const Home = () => {
             {[...categories, ...categories].map((cat, index) => (
               <div
                 key={index}
-                onClick={() => navigate(`/wedding-shop/vendors?category=${cat.name}`)}
+                onClick={() => navigate(`/vendors?category=${cat.name}`)}
                 className="group cursor-pointer flex flex-col items-center flex-shrink-0 w-[170px] md:w-[210px]"
               >
                 {/* Card Image */}
@@ -281,7 +281,7 @@ const Home = () => {
         `}</style>
 
         <button
-          onClick={() => navigate("/wedding-shop/vendors")}
+          onClick={() => navigate("/vendors")}
           className="w-full mt-6 text-red-600 font-semibold hover:text-red-800 md:hidden block text-center"
         >
           View All Categories &rarr;

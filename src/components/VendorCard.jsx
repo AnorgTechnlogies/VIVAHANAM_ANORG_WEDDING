@@ -127,7 +127,7 @@ const VendorCard = ({ vendor }) => {
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow = "0 4px 12px rgba(44,36,32,0.04)";
       }}
-      onClick={() => navigate(`/wedding-shop/vendors/${vendor._id || vendor.id}`)}
+      onClick={() => navigate(`/vendors/${vendor._id || vendor.id}`)}
     >
       {/* IMAGE SECTION */}
       <div style={{ height: 180, position: "relative", overflow: "hidden" }}>

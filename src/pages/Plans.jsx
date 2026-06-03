@@ -43,7 +43,7 @@ const Plans = () => {
           const endDate = new Date(d.subscription.currentPeriodEnd);
           if (endDate > new Date()) {
             toast.info("You already have an active plan. Redirecting to dashboard.");
-            navigate("/wedding-shop/vendor/dashboard", { replace: true });
+            navigate("/vendor/dashboard", { replace: true });
           }
         }
       } catch (e) {
@@ -74,7 +74,7 @@ const Plans = () => {
     const token = localStorage.getItem("vendorToken");
     if (!token) {
       toast.info("Please login as a vendor first to purchase a plan.");
-      navigate("/wedding-shop/vendor-auth");
+      navigate("/vendor-auth");
       return;
     }
     setSelectedPlan(planId);
@@ -216,7 +216,7 @@ const Plans = () => {
           </div>
 
           <button
-            onClick={() => navigate("/wedding-shop/vendor/dashboard")}
+            onClick={() => navigate("/vendor/dashboard")}
             className="bg-gray-900 text-white px-8 py-3 rounded-xl font-semibold hover:bg-gray-800 transition-colors"
           >
             Go to Dashboard

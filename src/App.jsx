@@ -18,16 +18,15 @@ function App() {
       <Navbar />
       <main className="min-h-screen pt-24 pb-8 bg-gray-50">
         <Routes>
-          <Route path="/wedding-shop" element={<Home />} />
-          <Route path="/wedding-shop/vendors" element={<VendorList />} />
-          <Route path="/wedding-shop/vendors/:id" element={<VendorDetails />} />
-          <Route path="/wedding-shop/vendor-auth" element={<VendorAuth />} />
-          <Route path="/wedding-shop/vendor-register" element={<VendorRegister />} />
-          <Route path="/wedding-shop/vendor/dashboard" element={<VendorDashboard />} />
-          <Route path="/wedding-shop/my-enquiries" element={<MyEnquiries />} />
-          <Route path="/wedding-shop/my-shortlist" element={<MyShortlist />} />
-          <Route path="/shops" element={<Navigate to="/wedding-shop" replace />} />
-          <Route path="/" element={<Navigate to="/wedding-shop" replace />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/vendors" element={<VendorList />} />
+          <Route path="/vendors/:id" element={<VendorDetails />} />
+          <Route path="/vendor-auth" element={<VendorAuth />} />
+          <Route path="/vendor-register" element={<VendorRegister />} />
+          <Route path="/vendor/dashboard" element={<VendorDashboard />} />
+          <Route path="/my-enquiries" element={<MyEnquiries />} />
+          <Route path="/my-shortlist" element={<MyShortlist />} />
+          
           <Route path="/sign-up" element={<SignUp />} />
           <Route path="/plans" element={<Plans />} />
         </Routes>
