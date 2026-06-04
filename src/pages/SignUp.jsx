@@ -760,7 +760,7 @@ const AuthPage = ({ onSuccess, onClose, disableRegisterRedirect = false, context
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Already Logged In
+            already Logged In
           </h2>
           <p className="text-gray-600 mb-6">
             You are already logged in. Redirecting to registration page...
@@ -770,7 +770,7 @@ const AuthPage = ({ onSuccess, onClose, disableRegisterRedirect = false, context
               onClick={() => navigate("/register")}
               className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
             >
-              Go to Registration
+              go to Registration
             </button>
             <button
               onClick={() => {
