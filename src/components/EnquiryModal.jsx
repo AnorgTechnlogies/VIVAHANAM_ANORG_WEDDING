@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 
-const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const EVENT_TYPES = ["wedding","engagement","reception","pre-wedding","birthday","anniversary","other"];
 const GUEST_OPTIONS = ["< 50","50-100","100-200","200-500","500-1000","1000+"];
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 const FORM_KEY = "vendor_onboarding";
 

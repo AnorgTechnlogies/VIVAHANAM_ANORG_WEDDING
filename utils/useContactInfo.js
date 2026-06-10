@@ -2,7 +2,7 @@
 // file change kiya hu pehle ye component me thi maine utils me add kiya hu usko iske route ko adjust kiya hu contactPage me 
 import { useState, useEffect } from 'react';
 
-const API_URL = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const useContactInfo = () => {
   const [contactInfo, setContactInfo] = useState({

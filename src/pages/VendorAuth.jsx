@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Phone, Briefcase, KeyRound, ArrowRight, ArrowLeft, Home, Store, Eye, EyeOff } from "lucide-react";  
 import useVendorNavigation from "../hooks/useVendorNavigation";
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AuthPage() {
   const navigate = useNavigate();

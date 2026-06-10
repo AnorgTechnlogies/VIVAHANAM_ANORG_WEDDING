@@ -50,7 +50,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { handleVendorNavigation } = useVendorNavigation();
 
-  const API_URL = import.meta.env.VITE_API_KEYSU  || "http://localhost:8000/api";
+  const API_URL = import.meta.env.VITE_API_KEYSU;
   const MAIN_DOMAIN = "https://vivahanam.com";
 
   const validationRules = {

@@ -5,8 +5,8 @@ import useVendorNavigation from "../hooks/useVendorNavigation";
 import VendorCard from "../components/VendorCard";
 import heroImage from "../assets/hero3.jpg.jpeg";
 
-const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
-const ROOT_API_BASE = API_BASE.replace(/\/admin\/?$/, "");
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const ROOT_API_BASE = API_BASE ? API_BASE.replace(/\/admin\/?$/, "") : "";
 
 const Home = () => {
   const navigate = useNavigate();

@@ -6,7 +6,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import VendorCard from "../components/VendorCard";
 
-const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const ROOT_API_BASE = API_BASE ? API_BASE.replace(/\/admin\/?$/, "") : "";
 
 // ─── EMPTY STATE COMPONENT ────────────────────────────────────────────────────
 const EmptyState = ({ onClearFilters }) => {

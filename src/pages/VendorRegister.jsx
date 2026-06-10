@@ -11,7 +11,7 @@ import {
   FileText
 } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 const FORM_KEY = "vendor_onboarding";
 const LS_KEY = `vivahanam_vendor_form_${FORM_KEY}`;
 

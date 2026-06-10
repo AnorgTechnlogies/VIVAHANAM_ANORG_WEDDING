@@ -4,8 +4,8 @@ import VendorReviewSection from "../components/VendorReviewSection";
 import EnquiryModal from "../components/EnquiryModal";
 import AuthPage from "./SignUp";
 
-const API_BASE = import.meta.env.VITE_API_KEY || "http://localhost:8000/api";
-const ROOT = API_BASE.replace(/\/api.*$/, "");
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const ROOT = API_BASE ? API_BASE.replace(/\/api.*$/, "") : "";
 
 const img = (src) => {
   if (!src) return null;
