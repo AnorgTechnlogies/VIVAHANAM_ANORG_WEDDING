@@ -760,7 +760,7 @@ const AuthPage = ({ onSuccess, onClose, disableRegisterRedirect = false, context
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            already Logged In
+            Already Logged In
           </h2>
           <p className="text-gray-600 mb-6">
             You are already logged in. Redirecting to registration page...
