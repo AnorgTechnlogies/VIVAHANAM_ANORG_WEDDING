@@ -10,6 +10,7 @@ const SearchBar = ({ onSearch }) => {
   const [locations, setLocations] = useState([]);
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   useEffect(() => {
     const fetchMasters = async () => {
@@ -26,6 +27,7 @@ const SearchBar = ({ onSearch }) => {
         let categoryOptions = (categoryField?.options || []).map((option) => ({
           value: option?.value || option?.label || "",
           label: option?.label || option?.value || "",
+          order: option?.order || 0,
         })).filter((option) => option.value && option.label);
 
         const locationMap = new Map();
@@ -49,10 +51,11 @@ const SearchBar = ({ onSearch }) => {
         });
 
         if (categoryOptions.length > 0) {
-          // Sort categories alphabetically by label
-          categoryOptions = categoryOptions.sort((a, b) => 
-            a.label.localeCompare(b.label)
-          );
+          // Sort categories by assigned order, fallback to alphabetical
+          categoryOptions = categoryOptions.sort((a, b) => {
+            if (a.order !== b.order) return a.order - b.order;
+            return a.label.localeCompare(b.label);
+          });
           setCategories(categoryOptions);
         } else {
           const catRes = await fetch(`${API_BASE}/categories`);
@@ -62,7 +65,7 @@ const SearchBar = ({ onSearch }) => {
             label: item?.label || item?.name || item?.value || "",
           })).filter((item) => item.value && item.label);
           
-          // Sort categories alphabetically by label
+          // Sort categories alphabetically by label (fallback)
           categoriesData = categoriesData.sort((a, b) => 
             a.label.localeCompare(b.label)
           );
@@ -92,16 +95,27 @@ const SearchBar = ({ onSearch }) => {
       <div className="w-full flex-1 flex flex-col md:flex-row gap-3">
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) => {
+            if (e.target.value === "SHOW_ALL") {
+              setShowAllCategories(true);
+            } else {
+              setCategory(e.target.value);
+            }
+          }}
           className="w-full bg-gray-50/50 md:bg-transparent border border-gray-200 md:border-none md:border-r border-gray-300 rounded-xl md:rounded-none p-3 text-gray-700 focus:outline-none focus:ring-0 appearance-none font-medium text-sm md:text-base"
           style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
         >
           <option key="" value="" className="text-gray-500 text-sm md:text-base">All Vendor Types</option>
-          {categories.map((item) => (
+          {categories.slice(0, showAllCategories ? categories.length : 8).map((item) => (
             <option key={item.value} value={item.value} className="text-gray-900 text-sm md:text-base">
               {item.label}
             </option>
           ))}
+          {!showAllCategories && categories.length > 8 && (
+            <option key="SHOW_ALL" value="SHOW_ALL" className="text-amber-600 font-medium">
+              --- See all categories ---
+            </option>
+          )}
         </select>
 
         <select

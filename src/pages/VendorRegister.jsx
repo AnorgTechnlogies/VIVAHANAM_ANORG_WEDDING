@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { 
-  CheckCircle2, 
-  Loader2, 
-  Upload, 
-  Trash2, 
+import {
+  CheckCircle2,
+  Loader2,
+  Upload,
+  Trash2,
   Heart,
   Info,
   FileText
@@ -99,7 +99,11 @@ export default function VendorRegister() {
     const fetchVendor = async () => {
       try {
         const token = localStorage.getItem("vendorToken");
-        if (!token) return;
+        if (!token) {
+          toast.info("Please log in or sign up first to register as a vendor.");
+          navigate("/vendor-auth");
+          return;
+        }
         const res = await fetch(`${API_URL}/vendor/me`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
@@ -167,7 +171,7 @@ export default function VendorRegister() {
       // Only for non-location dependent fields (like categories)
       if (childKey !== "city" && parentValue && field?.validation?.byCategory?.[parentValue]) {
         const list = field.validation.byCategory[parentValue];
-        setDynamicOptions(prev => ({ ...prev, [childKey]: list.map(i => typeof i === "string" ? {label:i,value:i} : i) }));
+        setDynamicOptions(prev => ({ ...prev, [childKey]: list.map(i => typeof i === "string" ? { label: i, value: i } : i) }));
       }
     });
   }, [config, formValues]);
@@ -380,8 +384,8 @@ export default function VendorRegister() {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ data: formValues, uploadedFiles }),
       });
-      if (res.ok) { 
-        localStorage.removeItem(LS_KEY); 
+      if (res.ok) {
+        localStorage.removeItem(LS_KEY);
         toast.success("Application submitted successfully! Redirecting to plans...");
         navigate("/plans");
       } else {

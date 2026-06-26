@@ -208,7 +208,7 @@ const Navbar = () => {
     } catch (err) {
       setVerifyError(
         err.message ||
-          "Verification failed. Please check your email and try again."
+        "Verification failed. Please check your email and try again."
       );
     } finally {
       setVerifyLoading(false);
@@ -315,7 +315,7 @@ const Navbar = () => {
       });
 
       console.log("📥 Response status:", response.status);
-      
+
       const data = await response.json();
       console.log("📥 Response data:", data);
 
@@ -331,7 +331,7 @@ const Navbar = () => {
       setOtp("");
       setShowNewPassword(false);
       setShowConfirmNewPassword(false);
-      
+
     } catch (err) {
       console.error("❌ Reset password error:", err);
       setError(err.message || "Failed to reset password. Please try again.");
@@ -496,8 +496,8 @@ const Navbar = () => {
         showPassword: false,
       });
       navigate("/");
-      window.dispatchEvent(new CustomEvent('authStateChanged', { 
-        detail: { isLoggedIn: true, user: data.user } 
+      window.dispatchEvent(new CustomEvent('authStateChanged', {
+        detail: { isLoggedIn: true, user: data.user }
       }));
 
     } catch (err) {
@@ -737,8 +737,8 @@ const Navbar = () => {
     setIsProfileDropdownOpen(false);
 
     navigate("/", { replace: true });
-    window.dispatchEvent(new CustomEvent('authStateChanged', { 
-      detail: { isLoggedIn: false, user: null } 
+    window.dispatchEvent(new CustomEvent('authStateChanged', {
+      detail: { isLoggedIn: false, user: null }
     }));
 
     setTimeout(() => {
@@ -756,27 +756,27 @@ const Navbar = () => {
     window.location.href = `${MAIN_DOMAIN}/update-profile`;
   };
 
-// Function to handle Home/Logo click - redirects to main domain with smooth scroll
-const handleHomeClick = () => {
-  setIsMenuOpen(false);
+  // Function to handle Home/Logo click - redirects to main domain with smooth scroll
+  const handleHomeClick = () => {
+    setIsMenuOpen(false);
 
-  // Get current URL
-  const currentUrl = window.location.href;
-  const mainDomainUrl = `${MAIN_DOMAIN}/`;
-  
-  if (currentUrl === mainDomainUrl || currentUrl === `${MAIN_DOMAIN}`) {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  } else {
-    window.location.href = mainDomainUrl;
-  }
-};
+    // Get current URL
+    const currentUrl = window.location.href;
+    const mainDomainUrl = `${MAIN_DOMAIN}/`;
+
+    if (currentUrl === mainDomainUrl || currentUrl === `${MAIN_DOMAIN}`) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      window.location.href = mainDomainUrl;
+    }
+  };
 
   // ✅ NAVIGATION ITEMS - Correct routing for old website (full URLs)
   const navItems = [
-{ name: "Home", href: `${MAIN_DOMAIN}/`, onClick: handleHomeClick, isRelative: false },    { name: "Services & Plan", href: `${MAIN_DOMAIN}/PlanHomePage`, isRelative: false },
+    { name: "Home", href: `${MAIN_DOMAIN}/`, onClick: handleHomeClick, isRelative: false }, { name: "Services & Plan", href: `${MAIN_DOMAIN}/PlanHomePage`, isRelative: false },
     { name: "About Us", href: `${MAIN_DOMAIN}/about`, isRelative: false },
     { name: "Contact Us", href: `${MAIN_DOMAIN}/contact`, isRelative: false },
-    { name: "Wedding Services", href: "/", isRelative: true },
+    { name: "Register as a vendor", href: "/vendor-register", isRelative: true },
   ];
 
   // Helper function to render navigation links
@@ -813,7 +813,7 @@ const handleHomeClick = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#a4161a] via-[#d62828] to-[#f4b228] backdrop-blur-sm shadow-md ">
         <div className="px-2 sm:px-4 lg:px-6 py-3 lg:py-4 max-w-7xl mx-auto">
           <div className="flex items-center">
-       
+
             <div className="flex items-center flex-shrink-0">
               <div
                 className="w-32 h-12 sm:w-36 sm:h-14 md:w-40 md:h-16 rounded-full overflow-hidden flex-shrink-0 transition-all duration-300 hover:scale-110 cursor-pointer"
@@ -831,7 +831,7 @@ const handleHomeClick = () => {
               <div className="hidden lg:flex items-center gap-2">
                 {navItems.map((item) => renderNavLink(item))}
               </div>
-              
+
               <div className="relative">
                 <button
                   onClick={toggleProfileDropdown}
@@ -857,7 +857,7 @@ const handleHomeClick = () => {
                     </span>
                   )}
                 </button>
-                
+
                 {isProfileDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-64 sm:w-72 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50 animate-in slide-in-from-top-2 duration-200">
                     {isLoggedIn ? (
@@ -957,7 +957,7 @@ const handleHomeClick = () => {
                   </div>
                 )}
               </div>
-              
+
               <button
                 onClick={toggleMenu}
                 className="lg:hidden text-gray-700 hover:text-amber-700 transition-colors duration-200 p-1.5"
@@ -968,12 +968,11 @@ const handleHomeClick = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Mobile Menu */}
         <div
-          className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-            isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-          }`}
+          className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+            }`}
         >
           <div className="px-2 py-2 bg-white/95 backdrop-blur-sm border-t border-gray-200">
             {navItems.map((item) => (
@@ -1079,21 +1078,19 @@ const handleHomeClick = () => {
               <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
                 <button
                   onClick={switchToLogin}
-                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
-                    authMode === "login"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
+                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${authMode === "login"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                    }`}
                 >
                   Sign In
                 </button>
                 <button
                   onClick={switchToSignup}
-                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
-                    authMode === "signup"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
+                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${authMode === "signup"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                    }`}
                 >
                   Sign Up
                 </button>
@@ -1105,12 +1102,12 @@ const handleHomeClick = () => {
                 authMode === "login"
                   ? handleLogin
                   : authMode === "signup"
-                  ? handleSignup
-                  : authMode === "forgot"
-                  ? handleForgotPassword
-                  : authMode === "verify"
-                  ? handleResetPassword
-                  : switchToLogin
+                    ? handleSignup
+                    : authMode === "forgot"
+                      ? handleForgotPassword
+                      : authMode === "verify"
+                        ? handleResetPassword
+                        : switchToLogin
               }
               className="space-y-4"
             >
@@ -1177,57 +1174,57 @@ const handleHomeClick = () => {
               {(authMode === "login" ||
                 authMode === "signup" ||
                 authMode === "forgot") && (
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Email Address *
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={
-                      authMode === "signup"
-                        ? formData.email
-                        : authMode === "login"
-                        ? loginData.email
-                        : forgotEmail
-                    }
-                    onChange={(e) => {
-                      if (authMode === "signup") {
-                        setFormData((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }));
-                      } else if (authMode === "login") {
-                        setLoginData((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }));
-                      } else {
-                        setForgotEmail(e.target.value);
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Email Address *
+                    </label>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={
+                        authMode === "signup"
+                          ? formData.email
+                          : authMode === "login"
+                            ? loginData.email
+                            : forgotEmail
                       }
-                    }}
-                    onBlur={
-                      authMode === "signup"
-                        ? () => handleFieldBlur("email")
-                        : undefined
-                    }
-                    className={
-                      authMode === "signup"
-                        ? getInputClassName("email")
-                        : "relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:z-10 transition-colors"
-                    }
-                    placeholder="Enter your email"
-                    disabled={loading}
-                  />
-                  {authMode === "signup" && renderFieldError("email")}
-                </div>
-              )}
+                      onChange={(e) => {
+                        if (authMode === "signup") {
+                          setFormData((prev) => ({
+                            ...prev,
+                            email: e.target.value,
+                          }));
+                        } else if (authMode === "login") {
+                          setLoginData((prev) => ({
+                            ...prev,
+                            email: e.target.value,
+                          }));
+                        } else {
+                          setForgotEmail(e.target.value);
+                        }
+                      }}
+                      onBlur={
+                        authMode === "signup"
+                          ? () => handleFieldBlur("email")
+                          : undefined
+                      }
+                      className={
+                        authMode === "signup"
+                          ? getInputClassName("email")
+                          : "relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:z-10 transition-colors"
+                      }
+                      placeholder="Enter your email"
+                      disabled={loading}
+                    />
+                    {authMode === "signup" && renderFieldError("email")}
+                  </div>
+                )}
 
               {authMode === "verify" && (
                 <>
@@ -1359,8 +1356,8 @@ const handleHomeClick = () => {
                             ? "text"
                             : "password"
                           : formData.showPassword
-                          ? "text"
-                          : "password"
+                            ? "text"
+                            : "password"
                       }
                       autoComplete={
                         authMode === "login"
