@@ -140,10 +140,8 @@ export default function VendorDashboard() {
       const d = await r.json();
       if (!r.ok || !d?.success) throw new Error();
 
-      if (!d.data?.hasActiveSubscription) {
-        navigate("/plans", { replace: true });
-        return;
-      }
+      // We no longer redirect to /plans if there is no active subscription. 
+      // The dashboard UI handles the locked state itself.
 
       setVendor(d.data);
     } catch (e) {
@@ -537,11 +535,11 @@ export default function VendorDashboard() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#16a34a", marginBottom: 6 }}>
               <span>✓</span> Profile Registration Completed
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#16a34a", marginBottom: 6 }}>
-              <span>✓</span> Payment / Plan Activated
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#d97706", marginBottom: 6 }}>
+              <span style={{ display: "inline-block", animation: "spin_icon 1.5s linear infinite" }}>🔄</span> Admin Verification & Approval (Pending)
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#d97706" }}>
-              <span style={{ display: "inline-block", animation: "spin_icon 1.5s linear infinite" }}>🔄</span> Admin Verification & Activation (Pending)
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#6b7280" }}>
+              <span style={{ opacity: 0.5 }}>🔒</span> Purchase Subscription Plan (Locked)
             </div>
           </div>
 
@@ -825,7 +823,21 @@ export default function VendorDashboard() {
       </div>
 
       {/* ── Page body ── */}
-      <div className="vd-body">
+      {status === "approved" && !vendor.hasActiveSubscription ? (
+        <div className="vd-body" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 40, textAlign: "center" }}>
+          <div style={{ background: "#fff", border: "1px solid #f0ede8", borderRadius: 24, padding: "40px", maxWidth: 500, width: "100%", boxShadow: "0 10px 30px rgba(0,0,0,0.02)" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", marginBottom: 12 }}>Dashboard Locked</h2>
+            <p style={{ color: "#6b7280", fontSize: 15, lineHeight: 1.6, marginBottom: 24 }}>
+              Congratulations! Your profile has been approved by the admin. To unlock your dashboard and start receiving leads, please purchase a subscription plan.
+            </p>
+            <button className="vd-btn" onClick={() => navigate("/plans")} style={{ background: "#c2894b", color: "#fff", padding: "12px 24px", fontSize: 15, width: "100%" }}>
+              View Subscription Plans
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="vd-body">
 
         {/* ── OVERVIEW ── */}
         {tab === "overview" && (
@@ -1528,8 +1540,8 @@ export default function VendorDashboard() {
             </div>
           </div>
         )}
-
       </div>
+      )}
     </div>
   );
 }

@@ -55,13 +55,11 @@ export default function useVendorNavigation() {
       // Step 1: Not registered → go to registration form
       if (!registered) return "/vendor-register";
 
-      // Step 2: Registered but no active subscription or payment pending → go to plans
+      // Step 2: Registered → dashboard (UI will lock if no active subscription)
       const hasSub = Boolean(vendor.hasActiveSubscription);
       setHasActiveSubscription(hasSub);
 
-      if (vendor.registrationStatus === "payment_pending" || !hasSub) return "/plans";
-
-      // Step 3: Registered + active subscription → go to dashboard
+      // Step 3: Registered → go to dashboard
       return fromGatekeeper ? "/vendor/dashboard" : "/vendor-auth";
     } catch (error) {
       setIsVendorLoggedIn(Boolean(localStorage.getItem("vendorToken")));

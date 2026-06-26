@@ -386,8 +386,8 @@ export default function VendorRegister() {
       });
       if (res.ok) {
         localStorage.removeItem(LS_KEY);
-        toast.success("Application submitted successfully! Redirecting to plans...");
-        navigate("/plans");
+        toast.success("Application submitted successfully! Redirecting to dashboard...");
+        navigate("/vendor/dashboard");
       } else {
         const data = await res.json().catch(() => ({}));
         const detail = data.errors?.length ? `\n\n${data.errors.join("\n")}` : "";
