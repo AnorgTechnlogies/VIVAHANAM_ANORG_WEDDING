@@ -104,7 +104,7 @@ export default function EnquiryModal({ vendor, onClose }) {
               </div>
               <div>
                 <label style={{ fontSize: 12, color: "#7A6E6A", display: "block", marginBottom: 4 }}>Budget</label>
-                <input value={form.budget} onChange={e => set("budget", e.target.value)} placeholder="e.g. ₹2-5 Lakh" style={inputStyle} />
+                <input value={form.budget} onChange={e => set("budget", e.target.value)} placeholder="e.g. $2k-5k" style={inputStyle} />
               </div>
             </div>
 

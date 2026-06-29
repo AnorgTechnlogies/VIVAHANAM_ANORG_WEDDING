@@ -773,11 +773,17 @@ const Navbar = () => {
 
   // ✅ NAVIGATION ITEMS - Correct routing for old website (full URLs)
   const navItems = [
-    { name: "Home", href: `${MAIN_DOMAIN}/`, onClick: handleHomeClick, isRelative: false }, { name: "Services & Plan", href: `${MAIN_DOMAIN}/PlanHomePage`, isRelative: false },
+    { name: "Home", href: `${MAIN_DOMAIN}/`, onClick: handleHomeClick, isRelative: false }, 
+    { name: "Services & Plan", href: `${MAIN_DOMAIN}/PlanHomePage`, isRelative: false },
     { name: "About Us", href: `${MAIN_DOMAIN}/about`, isRelative: false },
     { name: "Contact Us", href: `${MAIN_DOMAIN}/contact`, isRelative: false },
-    { name: "Register as a vendor", href: "/vendor-register", isRelative: true },
   ];
+
+  if (isLoggedIn && authType === 'vendor') {
+    navItems.push({ name: "Vendor Dashboard", href: "/vendor-dashboard", isRelative: true });
+  } else {
+    navItems.push({ name: "Register as a vendor", href: "/vendor-register", isRelative: true });
+  }
 
   // Helper function to render navigation links
   const renderNavLink = (item) => {

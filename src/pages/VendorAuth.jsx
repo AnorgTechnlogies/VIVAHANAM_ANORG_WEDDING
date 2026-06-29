@@ -34,6 +34,9 @@ export default function AuthPage() {
     mobile: "",
     password: "",
     confirmPassword: "",
+    vendorType: "",
+    panditClassification: "",
+    price: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -59,6 +62,11 @@ export default function AuthPage() {
       if (!form.mobile) newErrors.mobile = "Mobile number is required";
       else if (!/^\d{10}$/.test(form.mobile)) newErrors.mobile = "Mobile must be 10 digits";
       if (form.password !== form.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
+      if (!form.vendorType) newErrors.vendorType = "Vendor type is required";
+      if (form.vendorType === "Pandit") {
+        if (!form.panditClassification) newErrors.panditClassification = "Pandit category is required";
+        if (!form.price) newErrors.price = "Booking amount is required";
+      }
     }
     
     return newErrors;
@@ -500,6 +508,54 @@ export default function AuthPage() {
                         />
                         {errors.mobile && <p className="text-red-500 text-xs mt-1 ml-2">{errors.mobile}</p>}
                       </div>
+
+                      <div className="relative group sm:col-span-2">
+                        <select
+                          name="vendorType"
+                          value={form.vendorType}
+                          onChange={handleChange}
+                          className={`w-full px-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.vendorType ? 'border-red-500' : 'border-gray-200'}`}
+                        >
+                          <option value="">Select Vendor Type</option>
+                          <option value="Pandit">Pandit</option>
+                          <option value="Photographer">Photographer</option>
+                          <option value="Venue">Venue</option>
+                          <option value="Makeup">Makeup</option>
+                          <option value="Catering">Catering</option>
+                          <option value="Decorator">Decorator</option>
+                        </select>
+                        {errors.vendorType && <p className="text-red-500 text-xs mt-1 ml-2">{errors.vendorType}</p>}
+                      </div>
+
+                      {form.vendorType === "Pandit" && (
+                        <>
+                          <div className="relative group">
+                            <select
+                              name="panditClassification"
+                              value={form.panditClassification}
+                              onChange={handleChange}
+                              className={`w-full px-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.panditClassification ? 'border-red-500' : 'border-gray-200'}`}
+                            >
+                              <option value="">Pandit Category</option>
+                              <option value="Gayatri Pariwar">Gayatri Pariwar</option>
+                              <option value="Other">Other</option>
+                            </select>
+                            {errors.panditClassification && <p className="text-red-500 text-xs mt-1 ml-2">{errors.panditClassification}</p>}
+                          </div>
+                          
+                          <div className="relative group">
+                            <input
+                              type="number"
+                              name="price"
+                              placeholder="Booking Amount ($)"
+                              value={form.price}
+                              onChange={handleChange}
+                              className={`w-full px-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.price ? 'border-red-500' : 'border-gray-200'}`}
+                            />
+                            {errors.price && <p className="text-red-500 text-xs mt-1 ml-2">{errors.price}</p>}
+                          </div>
+                        </>
+                      )}
 
                       <div className="relative group">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-rose-500 transition-colors" size={18} />

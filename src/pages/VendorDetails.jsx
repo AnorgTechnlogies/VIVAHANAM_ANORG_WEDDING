@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import VendorReviewSection from "../components/VendorReviewSection";
 import EnquiryModal from "../components/EnquiryModal";
 import AuthPage from "./SignUp";
+import PanditBookingModal from "../components/PanditBookingModal";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const ROOT = API_BASE ? API_BASE.replace(/\/api.*$/, "") : "";
@@ -32,6 +33,7 @@ const VendorDetails = () => {
   const [revealedContact, setRevealedContact] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   const token = localStorage.getItem("vivahanamToken");
   const isLoggedIn = !!token;
@@ -84,6 +86,8 @@ const VendorDetails = () => {
       handleViewContact();
     } else if (pendingAction === "shortlist") {
       handleShortlist();
+    } else if (pendingAction === "booking") {
+      setShowBookingModal(true);
     }
     setPendingAction(null);
   };
@@ -232,6 +236,22 @@ const VendorDetails = () => {
             }}>
               {shortlisted ? "❤️" : "🤍"} Shortlist
             </button>
+            {category?.toLowerCase() === "pandit" && (
+              <button onClick={() => {
+                if (!isLoggedIn) {
+                  setPendingAction("booking");
+                  setShowAuth(true);
+                } else {
+                  setShowBookingModal(true);
+                }
+              }} style={{
+                display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px",
+                borderRadius: 8, border: "1px solid #D4426A", background: "#D4426A",
+                fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer",
+              }}>
+                📅 Book Pandit
+              </button>
+            )}
             <button onClick={() => scrollTo("reviews")} style={{
               display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px",
               borderRadius: 8, border: "1px solid #EDE0D8", background: "#fff",
@@ -324,7 +344,7 @@ const VendorDetails = () => {
             <div style={{ background: "linear-gradient(135deg, #D4426A, #e8637e)", padding: "24px 28px", color: "#fff" }}>
               <div style={{ fontSize: 12, opacity: .85, marginBottom: 4 }}>Starting Price</div>
               <div style={{ fontSize: 30, fontWeight: 700, fontFamily: "'Cormorant Garamond',serif" }}>
-                {vendor.price ? `₹${vendor.price.toLocaleString()}` : "On Request"}
+                {vendor.price ? `$${vendor.price.toLocaleString()}` : "On Request"}
               </div>
             </div>
 
@@ -418,6 +438,16 @@ const VendorDetails = () => {
           onSuccess={handleAuthSuccess} 
           onClose={() => { setShowAuth(false); setPendingAction(null); }} 
           disableRegisterRedirect={true} 
+        />
+      )}
+
+      {showBookingModal && (
+        <PanditBookingModal
+          vendorId={vendor.vendorId?._id || vendor._id}
+          vendorName={vendor.name || vendor.vendorId?.brandName || "Vendor"}
+          vendorPrice={vendor.vendorId?.price || 0}
+          onClose={() => setShowBookingModal(false)}
+          token={localStorage.getItem("vivahanamToken")}
         />
       )}
     </div>

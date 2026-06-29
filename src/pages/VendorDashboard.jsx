@@ -50,6 +50,7 @@ const TABS = [
   { id: "documents", label: "Documents" },
   { id: "enquiries", label: "Enquiries" },
   { id: "review", label: "Review" },
+  { id: "bookings", label: "Bookings" },
   { id: "myplan", label: "My Plan" },
   { id: "payments", label: "Payments" },
 ];
@@ -100,6 +101,10 @@ export default function VendorDashboard() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [postingReply, setPostingReply] = useState(false);
+
+  // Bookings
+  const [bookings, setBookings] = useState([]);
+  const [loadingB, setLoadingB] = useState(false);
 
   const [formConfig, setFormConfig] = useState(null);
   const [states, setStates] = useState([]);
@@ -171,7 +176,9 @@ export default function VendorDashboard() {
       brandName: vendor.brandName || subData.brand_name || "",
       mobile: vendor.mobile || subData.mobile || "",
       city: vCity,
-      vendorType: vType
+      vendorType: vType,
+      panditClassification: vendor.panditClassification || "",
+      price: vendor.price || 0
     });
 
     if (vState) setSelectedState(vState);
@@ -192,22 +199,29 @@ export default function VendorDashboard() {
 
   /* fetch reviews for vendor dashboard */
   useEffect(() => {
-    if (tab !== "review") return;
-    const token = localStorage.getItem("vendorToken");
-    if (!token) return;
-    setLoadingR(true);
-    // UPDATED URL - added /vendors/ prefix
-    fetch(`${API_URL}/vendors/vendor/my-reviews`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(r => r.json()).then(d => {
+    if (tab !== "review" && tab !== "bookings") return;
+    const t = localStorage.getItem("vendorToken");
+    if (!vendor || !t) return;
+    
+    if (tab === "review") {
+      setLoadingR(true);
+      fetch(`${API_ORIGIN}/api/vendors/${vendor._id}/reviews`).then(r => r.json()).then(d => {
         if (d.success) {
-          setReviews(d.data || []);
-          if (d.summary) setRatingSummary(d.summary);
+          setReviews(d.data.reviews || []);
+          setRatingSummary(d.data.summary || null);
         }
-      })
-      .catch(console.error).finally(() => setLoadingR(false));
-  }, [tab]);
+      }).finally(() => setLoadingR(false));
+    }
+    
+    if (tab === "bookings") {
+      setLoadingB(true);
+      fetch(`${API_ORIGIN}/api/book/vendor-bookings`, {
+        headers: { Authorization: `Bearer ${t}` }
+      }).then(r => r.json()).then(d => {
+        if (d.success) setBookings(d.data || []);
+      }).finally(() => setLoadingB(false));
+    }
+  }, [vendor, tab, API_ORIGIN]);
 
   /* fetch payment transactions */
   useEffect(() => {
@@ -234,7 +248,7 @@ export default function VendorDashboard() {
   const profileFields = useMemo(() => {
     if (!vendor) return [];
     const subData = vendor.submission?.data || {};
-    return [
+    const fields = [
       { key: "brandName", label: "Brand Name", value: vendor.brandName || subData.brand_name, editable: true },
       { key: "vendorType", label: "Vendor Type", value: vendor.vendorType || subData.category, editable: true, type: "select", options: categories },
       { key: "email", label: "Email", value: vendor.email || subData.email, editable: false },
@@ -242,6 +256,11 @@ export default function VendorDashboard() {
       { key: "city", label: "City", value: vendor.city || subData.city, editable: true, type: "city_select" },
       { key: "createdAt", label: "Joined On", value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", editable: false },
     ];
+    if (vendor.vendorType?.toLowerCase() === "pandit" || subData.category?.toLowerCase() === "pandit") {
+      fields.push({ key: "panditClassification", label: "Pandit Category", value: vendor.panditClassification || "—", editable: true, type: "select", options: ["Gayatri Pariwar", "Other"] });
+      fields.push({ key: "price", label: "Booking Amount ($)", value: vendor.price || 0, editable: true, type: "number" });
+    }
+    return fields;
   }, [vendor, categories]);
 
   const subEntries = useMemo(() => {
@@ -880,12 +899,48 @@ export default function VendorDashboard() {
           <div style={{ background: "#fff", border: "1px solid #f0ede8", borderRadius: 12, padding: "22px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>My Profile</div>
+              {!editProfile
+                ? <button className="vd-btn" onClick={() => setEditProfile(true)} style={{ background: "#fdf8f3", color: "#c2894b", border: "1px solid #e8d5bc" }}>Edit</button>
+                : <div style={{ display: "flex", gap: 8 }}>
+                    <button className="vd-btn" style={{ background: "#f9fafb", color: "#6b7280" }} disabled={savingP}
+                      onClick={() => {
+                        setEditProfile(false);
+                        const subData = vendor.submission?.data || {};
+                        setPForm({
+                          brandName: vendor.brandName || subData.brand_name || "",
+                          mobile: vendor.mobile || subData.mobile || "",
+                          city: vendor.city || subData.city || "",
+                          vendorType: vendor.vendorType || subData.category || "",
+                          panditClassification: vendor.panditClassification || "",
+                          price: vendor.price || 0
+                        });
+                      }}>Cancel</button>
+                    <button className="vd-btn" onClick={handleSaveProfile} disabled={savingP}
+                      style={{ background: "#c2894b", color: "#fff" }}>{savingP ? "Saving…" : "Save"}</button>
+                  </div>
+              }
             </div>
             <div className="vd-grid-2">
               {profileFields.map(f => (
                 <div key={f.key}>
                   <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{f.label}</div>
-                  <div style={{ fontSize: 13, color: "#1a1a1a", fontWeight: 500, padding: "9px 12px", background: "#fafaf8", borderRadius: 8, border: "1px solid #f0ede8" }}>{f.value || "—"}</div>
+                  {editProfile && f.editable
+                    ? (
+                      f.type === "select" ? (
+                        <select className="vd-input" value={pForm[f.key] || ""} onChange={e => setPForm(p => ({ ...p, [f.key]: e.target.value }))}>
+                          <option value="">Select {f.label}</option>
+                          {f.options?.map(o => (
+                            <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value}>
+                              {typeof o === 'string' ? o : o.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input type={f.type || "text"} className="vd-input" value={pForm[f.key] || ""} onChange={e => setPForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={`Enter ${f.label}`} />
+                      )
+                    )
+                    : <div style={{ fontSize: 13, color: "#1a1a1a", fontWeight: 500, padding: "9px 12px", background: "#fafaf8", borderRadius: 8, border: "1px solid #f0ede8" }}>{f.value || "—"}</div>
+                  }
                 </div>
               ))}
             </div>
@@ -1349,6 +1404,75 @@ export default function VendorDashboard() {
                   </div>
                 </>
             }
+          </div>
+        )}
+
+        {/* ── BOOKINGS ── */}
+        {tab === "bookings" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ background: "#fff", border: "1px solid #f0ede8", borderRadius: 12, padding: "22px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>My Bookings & Payments</div>
+                {bookings.length > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#f0fdf4", color: "#16a34a" }}>
+                    {bookings.length} completed
+                  </span>
+                )}
+              </div>
+
+              {loadingB
+                ? <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af", fontSize: 13 }}>Loading…</div>
+                : bookings.length === 0
+                  ? <Empty icon="📅" text="No bookings yet." />
+                  : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {bookings.map(b => (
+                      <div key={b._id} className="vd-enq"
+                        style={{ border: "1px solid #f0ede8", borderRadius: 11, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, background: "#fff" }}>
+                        
+                        <div className="vd-enq-header">
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#c2894b,#8b5e3c)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 600, fontSize: 16, flexShrink: 0 }}>
+                              📅
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 13, color: "#1a1a1a" }}>{b.userId?.name || "Customer"}</div>
+                              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 1 }}>{b.userId?.phone} · {b.userId?.email}</div>
+                            </div>
+                          </div>
+                          <div className="vd-enq-meta">
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#f0fdf4", color: "#166534" }}>Completed</span>
+                            <span style={{ fontSize: 11, color: "#9ca3af" }}>{new Date(b.bookingDate).toLocaleDateString()} at {b.bookingTime}</span>
+                          </div>
+                        </div>
+
+                        <div className="vd-enq-details">
+                          {[[
+                            "Total Amount", `$${b.baseAmount.toFixed(2)}`
+                          ], [
+                            "Platform Fee", `$${b.platformCommissionAmount.toFixed(2)}`
+                          ], [
+                            "Your Earnings", `$${b.vendorEarningsAmount.toFixed(2)}`
+                          ]].map(([l, v]) => (
+                            <div key={l} style={{ fontSize: 12 }}>
+                              <span style={{ color: "#9ca3af" }}>{l}: </span>
+                              <span style={{ fontWeight: l === "Your Earnings" ? 700 : 500, color: l === "Your Earnings" ? "#166534" : "#374151" }}>{v}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {b.appliedCouponCode && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, background: "#f5f3ff", borderRadius: 7, padding: "5px 9px", border: "1px solid #e9e5ff", width: "fit-content" }}>
+                            <span style={{ fontSize: 13 }}>🏷️</span>
+                            <span style={{ fontSize: 11, color: "#6b7280" }}>
+                              Coupon Used: <b>{b.appliedCouponCode}</b>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
           </div>
         )}
 

@@ -65,7 +65,7 @@ const VendorCard = ({ vendor }) => {
               Starting Price
             </span>
             <span style={{ fontSize: 14, fontWeight: 700, color: "#2C2420" }}>
-              ₹{Number(vendor.price).toLocaleString()}
+              ${Number(vendor.price).toLocaleString()}
             </span>
           </div>
         )}
@@ -76,7 +76,7 @@ const VendorCard = ({ vendor }) => {
           if (Array.isArray(value)) {
             displayValue = value.join(", ");
           } else if (!isNaN(value) && key.toLowerCase().includes("price")) {
-             displayValue = `₹${Number(value).toLocaleString()}`;
+             displayValue = `$${Number(value).toLocaleString()}`;
           }
           
           return (
