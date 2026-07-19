@@ -9,6 +9,7 @@ import VendorAuth from "./pages/VendorAuth";
 import VendorDashboard from "./pages/VendorDashboard";
 import MyEnquiries from "./pages/MyEnquiries";
 import MyShortlist from "./pages/MyShortlist";
+import MyBookingHistory from "./pages/MyBookingHistory";
 import SignUp from "./pages/SignUp";
 import Plans from "./pages/Plans";
 
@@ -26,6 +27,7 @@ function App() {
           <Route path="/vendor/dashboard" element={<VendorDashboard />} />
           <Route path="/my-enquiries" element={<MyEnquiries />} />
           <Route path="/my-shortlist" element={<MyShortlist />} />
+          <Route path="/my-booking-history" element={<MyBookingHistory />} />
           
           <Route path="/sign-up" element={<SignUp />} />
           <Route path="/plans" element={<Plans />} />

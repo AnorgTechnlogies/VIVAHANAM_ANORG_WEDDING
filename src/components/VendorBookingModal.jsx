@@ -4,7 +4,7 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || "test"; // Provide fallback
 
-export default function PanditBookingModal({ vendorId, vendorName, vendorPrice = 100, onClose, token }) {
+export default function VendorBookingModal({ vendorId, vendorName, vendorPrice = 100, onClose, token }) {
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [baseAmount, setBaseAmount] = useState(vendorPrice);

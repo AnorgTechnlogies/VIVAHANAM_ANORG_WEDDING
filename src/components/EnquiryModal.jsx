@@ -2,13 +2,13 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
-const EVENT_TYPES = ["wedding","engagement","reception","pre-wedding","birthday","anniversary","other"];
-const GUEST_OPTIONS = ["< 50","50-100","100-200","200-500","500-1000","1000+"];
+const EVENT_TYPES = ["wedding", "engagement", "reception", "pre-wedding", "birthday", "anniversary", "other"];
+const GUEST_OPTIONS = ["< 50", "50-100", "100-200", "200-500", "500-1000", "1000+"];
 
 export default function EnquiryModal({ vendor, onClose }) {
   const token = localStorage.getItem("vivahanamToken");
-  const user = (() => { try { return JSON.parse(localStorage.getItem("vivahanamUser")||"{}"); } catch { return {}; } })();
-  const [form, setForm] = useState({ name: user.name||"", phone: "", email: user.email||"", eventDate: "", eventType: "", guestCount: "", message: "", budget: "" });
+  const user = (() => { try { return JSON.parse(localStorage.getItem("vivahanamUser") || "{}"); } catch { return {}; } })();
+  const [form, setForm] = useState({ name: user.name || "", phone: "", email: user.email || "", eventDate: "", eventType: "", guestCount: "", message: "", budget: "" });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -89,7 +89,7 @@ export default function EnquiryModal({ vendor, onClose }) {
                 <label style={{ fontSize: 12, color: "#7A6E6A", display: "block", marginBottom: 4 }}>Event Type</label>
                 <select value={form.eventType} onChange={e => set("eventType", e.target.value)} style={inputStyle}>
                   <option value="">Select...</option>
-                  {EVENT_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+                  {EVENT_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
               </div>
             </div>

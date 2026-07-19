@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import VendorReviewSection from "../components/VendorReviewSection";
 import EnquiryModal from "../components/EnquiryModal";
 import AuthPage from "./SignUp";
-import PanditBookingModal from "../components/PanditBookingModal";
+import VendorBookingModal from "../components/VendorBookingModal";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const ROOT = API_BASE ? API_BASE.replace(/\/api.*$/, "") : "";
@@ -236,22 +236,20 @@ const VendorDetails = () => {
             }}>
               {shortlisted ? "❤️" : "🤍"} Shortlist
             </button>
-            {category?.toLowerCase() === "pandit" && (
-              <button onClick={() => {
-                if (!isLoggedIn) {
-                  setPendingAction("booking");
-                  setShowAuth(true);
-                } else {
-                  setShowBookingModal(true);
-                }
-              }} style={{
-                display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px",
-                borderRadius: 8, border: "1px solid #D4426A", background: "#D4426A",
-                fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer",
-              }}>
-                📅 Book Pandit
-              </button>
-            )}
+            <button onClick={() => {
+              if (!isLoggedIn) {
+                setPendingAction("booking");
+                setShowAuth(true);
+              } else {
+                setShowBookingModal(true);
+              }
+            }} style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px",
+              borderRadius: 8, border: "1px solid #D4426A", background: "#D4426A",
+              fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer",
+            }}>
+              📅 Book {category}
+            </button>
             <button onClick={() => scrollTo("reviews")} style={{
               display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px",
               borderRadius: 8, border: "1px solid #EDE0D8", background: "#fff",
@@ -442,7 +440,7 @@ const VendorDetails = () => {
       )}
 
       {showBookingModal && (
-        <PanditBookingModal
+        <VendorBookingModal
           vendorId={vendor.vendorId?._id || vendor._id}
           vendorName={vendor.name || vendor.vendorId?.brandName || "Vendor"}
           vendorPrice={vendor.vendorId?.price || 0}

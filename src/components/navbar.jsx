@@ -189,6 +189,14 @@ const Navbar = () => {
       if (data.token) {
         localStorage.setItem("vivahanamToken", data.token);
       }
+      
+      if (data.vendorToken) {
+        localStorage.setItem("vendorToken", data.vendorToken);
+      }
+      
+      if (data.vendorData) {
+        localStorage.setItem("vendorData", JSON.stringify(data.vendorData));
+      }
 
       setLoginData((prev) => ({ ...prev, email: formData.email }));
 
@@ -473,9 +481,17 @@ const Navbar = () => {
         localStorage.setItem("vivahanamToken", data.token);
       }
 
+      if (data.vendorToken) {
+        localStorage.setItem("vendorToken", data.vendorToken);
+      }
+
       if (data.user) {
         localStorage.setItem("vivahanamUser", JSON.stringify(data.user));
         setUserData(data.user);
+      }
+
+      if (data.vendorData) {
+        localStorage.setItem("vendorData", JSON.stringify(data.vendorData));
       }
 
       if (data.deviceLimit && data.activeDevices) {
@@ -692,22 +708,38 @@ const Navbar = () => {
     const vendorToken = localStorage.getItem("vendorToken");
     const vendorInfo = localStorage.getItem("vendorData");
 
+    let isUser = false;
+    let isVendor = false;
+
     if (token && userInfo) {
-      setIsLoggedIn(true);
-      setAuthType('user');
+      isUser = true;
       try {
         setUserData(JSON.parse(userInfo));
       } catch (error) {
         console.error("Error parsing user info:", error);
       }
-    } else if (vendorToken && vendorInfo) {
+    }
+
+    if (vendorToken && vendorInfo) {
+      isVendor = true;
+      if (!isUser) {
+        try {
+          setUserData(JSON.parse(vendorInfo));
+        } catch (error) {
+          console.error("Error parsing vendor info:", error);
+        }
+      }
+    }
+
+    if (isUser && isVendor) {
+      setIsLoggedIn(true);
+      setAuthType('both');
+    } else if (isUser) {
+      setIsLoggedIn(true);
+      setAuthType('user');
+    } else if (isVendor) {
       setIsLoggedIn(true);
       setAuthType('vendor');
-      try {
-        setUserData(JSON.parse(vendorInfo));
-      } catch (error) {
-        console.error("Error parsing vendor info:", error);
-      }
     } else {
       setIsLoggedIn(false);
       setAuthType(null);
@@ -736,14 +768,11 @@ const Navbar = () => {
     setUserData(null);
     setIsProfileDropdownOpen(false);
 
-    navigate("/", { replace: true });
     window.dispatchEvent(new CustomEvent('authStateChanged', {
       detail: { isLoggedIn: false, user: null }
     }));
 
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+    window.location.href = import.meta.env.BASE_URL;
   };
 
   const handleViewProfile = () => {
@@ -779,8 +808,13 @@ const Navbar = () => {
     { name: "Contact Us", href: `${MAIN_DOMAIN}/contact`, isRelative: false },
   ];
 
-  if (isLoggedIn && authType === 'vendor') {
-    navItems.push({ name: "Vendor Dashboard", href: "/vendor-dashboard", isRelative: true });
+  if (isLoggedIn) {
+    if (authType === 'vendor' || authType === 'both') {
+      navItems.push({ name: "Vendor Dashboard", href: "/vendor/dashboard", isRelative: true });
+    } else {
+      navItems.push({ name: "Register as a vendor", href: "/vendor-register", isRelative: true });
+      navItems.push({ name: "My Booking History", href: "/my-booking-history", isRelative: true });
+    }
   } else {
     navItems.push({ name: "Register as a vendor", href: "/vendor-register", isRelative: true });
   }
@@ -945,19 +979,6 @@ const Navbar = () => {
                           <LogIn className="h-4 w-4 text-amber-600" />
                           Login
                         </button>
-                        <div className="border-t border-gray-100 my-1"></div>
-                        <button
-                          onClick={() => {
-                            setIsProfileDropdownOpen(false);
-                            handleVendorNavigation();
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition-colors duration-200"
-                        >
-                          <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
-                          Vendor Login
-                        </button>
                       </>
                     )}
                   </div>
@@ -1029,15 +1050,6 @@ const Navbar = () => {
                   className="w-full block py-2 px-3 text-gray-700 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200 font-medium text-left text-sm"
                 >
                   Login
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleVendorNavigation();
-                  }}
-                  className="w-full block py-2 px-3 text-gray-700 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200 font-medium text-left text-sm"
-                >
-                  Vendor Login
                 </button>
               </>
             )}
