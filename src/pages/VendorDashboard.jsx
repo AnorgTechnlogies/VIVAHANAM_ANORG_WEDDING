@@ -257,7 +257,7 @@ export default function VendorDashboard() {
       { key: "createdAt", label: "Joined On", value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", editable: false },
     ];
     if (vendor.vendorType?.toLowerCase() === "pandit" || subData.category?.toLowerCase() === "pandit") {
-      fields.push({ key: "panditClassification", label: "Pandit Category", value: vendor.panditClassification || "—", editable: true, type: "select", options: ["Gayatri Pariwar", "Other"] });
+      fields.push({ key: "panditClassification", label: "Priests/Pandits Category", value: vendor.panditClassification || "—", editable: true, type: "select", options: ["Gayatri Pariwar", "Other"] });
       fields.push({ key: "price", label: "Booking Amount ($)", value: vendor.price || 0, editable: true, type: "number" });
     }
     return fields;

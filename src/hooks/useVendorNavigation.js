@@ -41,6 +41,7 @@ export default function useVendorNavigation() {
       if (!response.ok || !data?.success) {
         localStorage.removeItem("vendorToken");
         localStorage.removeItem("vendorData");
+        localStorage.removeItem("vivahanam_vendor_form_vendor_onboarding");
         setIsVendorLoggedIn(false);
         setIsVendorRegistered(false);
         setHasActiveSubscription(false);

@@ -57,7 +57,7 @@ const VendorDetails = () => {
   useEffect(() => {
     if (!isLoggedIn || !id) return;
     fetch(`${API_BASE}/vendors/${id}/shortlist/check`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => { if (d.success) setShortlisted(d.data.shortlisted); }).catch(() => {});
+      .then(r => r.json()).then(d => { if (d.success) setShortlisted(d.data.shortlisted); }).catch(() => { });
   }, [id, isLoggedIn]);
 
   /* sticky tab observer */
@@ -145,8 +145,8 @@ const VendorDetails = () => {
   const allImages = [...(vendor.gallery || [])];
   if (vendor.image && !allImages.includes(vendor.image)) allImages.unshift(vendor.image);
   const heroImg = img(allImages[0]) || FALLBACK;
-  const gridImgs = allImages.slice(1, 5);
-  const extraCount = Math.max(0, allImages.length - 5);
+  const gridImgs = allImages.slice(1, 3);
+  const extraCount = Math.max(0, allImages.length - 3);
   const data = vendor.data || vendor.additionalData || {};
   const category = vendor.vendorType || vendor.category || data.category || vendor.submission?.data?.category || (Array.isArray(vendor.categories) ? vendor.categories[0] : null) || "Vendor";
   const city = vendor.city || vendor.location?.city || data.city || vendor.submission?.data?.city || "";
@@ -178,36 +178,35 @@ const VendorDetails = () => {
 
       {/* ══════ GALLERY GRID (WedMeGood style) ══════ */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 6, borderRadius: 16, overflow: "hidden", height: 420 }}>
-          {/* Main large image */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderRadius: 16, overflow: "hidden", height: 350 }}>
+          {/* Main large image (Logo) */}
           <div className="vd-gallery-cell" onClick={() => setLightbox({ open: true, idx: 0 })}
-            style={{ cursor: "pointer", overflow: "hidden", position: "relative", gridRow: "1 / 1" }}>
-            <img src={heroImg} alt={vName} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }} />
+            style={{ cursor: "pointer", overflow: "hidden", position: "relative", background: "#FFF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img src={heroImg} alt={vName} style={{ width: "100%", height: "100%", objectFit: "contain", padding: "20px", boxSizing: "border-box", transition: "transform .4s" }} />
           </div>
-          {/* 2×2 small grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 6 }}>
-            {[0,1,2,3].map(i => {
-              const src = gridImgs[i] ? img(gridImgs[i]) : null;
-              const isLast = i === 3 && extraCount > 0;
-              return (
-                <div key={i} className="vd-gallery-cell" onClick={() => src && setLightbox({ open: true, idx: i + 1 })}
-                  style={{ cursor: src ? "pointer" : "default", overflow: "hidden", position: "relative", background: "#EDE0D8" }}>
-                  {src ? (
-                    <>
-                      <img src={src} alt={`Gallery ${i}`} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }} />
-                      {isLast && (
-                        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 700 }}>
-                          +{extraCount} more
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#B5A9A3", fontSize: 13 }}>No image</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {/* 2 small horizontal boxes */}
+          {[0, 1].map(i => {
+            const src = gridImgs[i] ? img(gridImgs[i]) : null;
+            const isLast = i === 1 && extraCount > 0;
+            return (
+              <div key={i} className="vd-gallery-cell" onClick={() => src && setLightbox({ open: true, idx: i + 1 })}
+                style={{ cursor: src ? "pointer" : "default", overflow: "hidden", position: "relative", background: "#EDE0D8" }}>
+                {src ? (
+                  <>
+                    <img src={src} alt={`Gallery ${i}`} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .4s" }} />
+                    {isLast && (
+                      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", backdropFilter: "blur(2px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#fff", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setLightbox({ open: true, idx: 2 }); }}>
+                        <span style={{ fontSize: 28, fontWeight: 700 }}>+{extraCount + 1}</span>
+                        <span style={{ fontSize: 13, fontWeight: 500, letterSpacing: 0.5, marginTop: 4 }}>Images in portfolio</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#B5A9A3", fontSize: 13 }}>No image</div>
+                )}
+              </div>
+            );
+          })}
         </div>
         <div ref={galleryEndRef} />
       </div>
@@ -221,7 +220,7 @@ const VendorDetails = () => {
             </h1>
             <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 14, color: "#5C524F", flexWrap: "wrap" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A6E6A" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A6E6A" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                 {[city, state].filter(Boolean).join(", ") || "Location N/A"}
               </span>
               <span style={{ color: "#D4426A", fontWeight: 600, textTransform: "capitalize" }}>{category}</span>
@@ -268,7 +267,7 @@ const VendorDetails = () => {
         </div>
       </div>
 
-    
+
 
       {/* ══════ TWO-COLUMN LAYOUT (65/35) ══════ */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 80px", display: "grid", gridTemplateColumns: "1fr 380px", gap: 40, alignItems: "start" }}>
@@ -276,7 +275,7 @@ const VendorDetails = () => {
         {/* ── LEFT COLUMN ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
 
-       
+
 
           {/* ── ABOUT ── */}
           <section style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE0D8", padding: 28, marginBottom: 24 }}>
@@ -287,12 +286,12 @@ const VendorDetails = () => {
           </section>
 
           {/* ── QUICK INFO / SERVICE DETAILS ── */}
-          {data && Object.keys(data).filter(k => !["about","description"].includes(k) && data[k]).length > 0 && (
+          {data && Object.keys(data).filter(k => !["about", "description"].includes(k) && data[k]).length > 0 && (
             <section style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE0D8", padding: 28, marginBottom: 24 }}>
               <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, color: "#2C2420", margin: "0 0 20px", fontWeight: 700 }}>Quick Info</h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
                 {Object.entries(data).map(([key, val]) => {
-                  if (["about","description"].includes(key) || !val) return null;
+                  if (["about", "description"].includes(key) || !val) return null;
                   return (
                     <div key={key} style={{ padding: "14px 0", borderBottom: "1px solid #F5EDE7", display: "flex", justifyContent: "space-between", alignItems: "center", paddingRight: 20 }}>
                       <span style={{ fontSize: 13, color: "#7A6E6A", textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
@@ -316,7 +315,7 @@ const VendorDetails = () => {
                 {allImages.map((im, i) => (
                   <div key={i} className="vd-gallery-cell" onClick={() => setLightbox({ open: true, idx: i })}
                     style={{ borderRadius: 10, overflow: "hidden", height: 140, cursor: "pointer" }}>
-                    <img src={img(im)} alt={`Photo ${i+1}`} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .3s" }} />
+                    <img src={img(im)} alt={`Photo ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .3s" }} />
                   </div>
                 ))}
               </div>
@@ -432,10 +431,10 @@ const VendorDetails = () => {
 
       {/* ══════ AUTH MODAL ══════ */}
       {showAuth && (
-        <AuthPage 
-          onSuccess={handleAuthSuccess} 
-          onClose={() => { setShowAuth(false); setPendingAction(null); }} 
-          disableRegisterRedirect={true} 
+        <AuthPage
+          onSuccess={handleAuthSuccess}
+          onClose={() => { setShowAuth(false); setPendingAction(null); }}
+          disableRegisterRedirect={true}
         />
       )}
 

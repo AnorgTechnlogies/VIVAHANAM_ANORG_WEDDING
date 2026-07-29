@@ -64,7 +64,7 @@ export default function AuthPage() {
       if (form.password !== form.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
       if (!form.vendorType) newErrors.vendorType = "Vendor type is required";
       if (form.vendorType === "Pandit") {
-        if (!form.panditClassification) newErrors.panditClassification = "Pandit category is required";
+        if (!form.panditClassification) newErrors.panditClassification = "Priests/Pandits category is required";
         if (!form.price) newErrors.price = "Booking amount is required";
       }
     }
@@ -517,7 +517,7 @@ export default function AuthPage() {
                           className={`w-full px-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.vendorType ? 'border-red-500' : 'border-gray-200'}`}
                         >
                           <option value="">Select Vendor Type</option>
-                          <option value="Pandit">Pandit</option>
+                          <option value="Pandit">Priests/Pandits</option>
                           <option value="Photographer">Photographer</option>
                           <option value="Venue">Venue</option>
                           <option value="Makeup">Makeup</option>
@@ -536,7 +536,7 @@ export default function AuthPage() {
                               onChange={handleChange}
                               className={`w-full px-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.panditClassification ? 'border-red-500' : 'border-gray-200'}`}
                             >
-                              <option value="">Pandit Category</option>
+                              <option value="">Priests/Pandits Category</option>
                               <option value="Gayatri Pariwar">Gayatri Pariwar</option>
                               <option value="Other">Other</option>
                             </select>
