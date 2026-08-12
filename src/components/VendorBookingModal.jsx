@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import SquarePaymentForm from "./SquarePaymentForm";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
-const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || "test"; // Provide fallback
 
 export default function VendorBookingModal({ vendorId, vendorName, vendorPrice = 100, onClose, token }) {
   const [bookingDate, setBookingDate] = useState("");
@@ -52,7 +51,7 @@ export default function VendorBookingModal({ vendorId, vendorName, vendorPrice =
     
     setLoadingMsg("Processing free booking...");
     try {
-      const res = await fetch(`${API_BASE.replace('/api', '')}/api/book/create-paypal-order`, {
+      const res = await fetch(`${API_BASE.replace('/api', '')}/api/book/create-square-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ vendorId, bookingDate, bookingTime, baseAmount, couponCode: couponValid ? couponCode : null, customerPhone, customerEmail })
@@ -70,46 +69,36 @@ export default function VendorBookingModal({ vendorId, vendorName, vendorPrice =
     }
   };
 
-  const createOrder = async () => {
+  const handleSquarePayment = async (squareToken) => {
     if (!bookingDate || !bookingTime || !customerPhone || !customerEmail) {
       alert("Please fill all required fields");
-      return null;
+      return;
     }
     
+    setLoadingMsg("Processing payment securely...");
     try {
-      const res = await fetch(`${API_BASE.replace('/api', '')}/api/book/create-paypal-order`, {
+      const res = await fetch(`${API_BASE.replace('/api', '')}/api/book/create-square-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ vendorId, bookingDate, bookingTime, baseAmount, couponCode: couponValid ? couponCode : null, customerPhone, customerEmail })
+        body: JSON.stringify({ 
+          vendorId, 
+          bookingDate, 
+          bookingTime, 
+          baseAmount, 
+          couponCode: couponValid ? couponCode : null, 
+          customerPhone, 
+          customerEmail,
+          sourceId: squareToken
+        })
       });
       const data = await res.json();
       if (data.success) {
-        return data.orderId;
-      } else {
-        alert(data.message);
-      }
-    } catch (err) {
-      alert("Error initializing payment");
-    }
-    return null;
-  };
-
-  const onApprove = async (data, actions) => {
-    setLoadingMsg("Capturing payment...");
-    try {
-      const res = await fetch(`${API_BASE.replace('/api', '')}/api/book/capture-paypal-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ paypalOrderId: data.orderID })
-      });
-      const resData = await res.json();
-      if (resData.success) {
         setSuccess(true);
       } else {
-        alert(resData.message);
+        alert(data.message || "Payment failed");
       }
     } catch (err) {
-      alert("Payment capture failed");
+      alert("Error processing payment");
     } finally {
       setLoadingMsg("");
     }
@@ -175,17 +164,21 @@ export default function VendorBookingModal({ vendorId, vendorName, vendorPrice =
           {loadingMsg ? (
             <div style={{ textAlign: "center", color: "#666" }}>{loadingMsg}</div>
           ) : (
-            <PayPalScriptProvider options={{ "client-id": PAYPAL_CLIENT_ID }}>
+            <div>
               {bookingDate && bookingTime ? (
                 finalAmount === 0 ? (
                   <button onClick={handleFreeBooking} style={btnStyle}>Book for Free</button>
                 ) : (
-                  <PayPalButtons createOrder={createOrder} onApprove={onApprove} />
+                  <SquarePaymentForm 
+                    amount={finalAmount} 
+                    onTokenGenerated={handleSquarePayment} 
+                    onError={(err) => alert(err)} 
+                  />
                 )
               ) : (
                 <div style={{ textAlign: "center", color: "#d97706", fontSize: 14 }}>Please select date and time to proceed to payment.</div>
               )}
-            </PayPalScriptProvider>
+            </div>
           )}
         </div>
       </div>
