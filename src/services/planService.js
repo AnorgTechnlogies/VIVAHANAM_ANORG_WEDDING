@@ -70,6 +70,16 @@ export const planService = {
     }
   },
 
+  // Create Square Order for Vendor
+  createSquareOrder: async (planId, couponCode, sourceId) => {
+    try {
+      const response = await api.post("/vendor-billing/create-square-order", { planId, couponCode, sourceId }, { timeout: 60000 });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   // Capture PayPal Order for Vendor
   captureVendorOrder: async (orderId) => {
     try {

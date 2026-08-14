@@ -2,16 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { planService } from "../services/planService";
 import { toast } from "react-toastify";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import SquarePaymentForm from "../components/SquarePaymentForm";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 const planIcons = ["🚀", "💎", "🏆"];
-
-const initialOptions = {
-  "client-id": import.meta.env.VITE_PAYPAL_CLIENT_ID || "test",
-  currency: "USD",
-  intent: "capture",
-};
 
 const Plans = () => {
   const navigate = useNavigate();
@@ -127,37 +121,26 @@ const Plans = () => {
     }
   };
 
-  const createPayPalOrder = async (data, actions) => {
+  const handleSquarePayment = async (squareToken) => {
     try {
-      const response = await planService.createVendorOrder(selectedPlan, appliedCoupon?.offerDetails?.code);
-      if (response.isFree) {
-        toast.info("This plan is free, please click Activate for Free");
-        return null;
-      }
-      return response.orderId;
-    } catch (error) {
-      toast.error(error.message || "Failed to create order");
-      throw error;
-    }
-  };
-
-  const handlePayPalApprove = async (data, actions) => {
-    try {
-      const response = await planService.captureVendorOrder(data.orderID);
+      setProcessingPayment(true);
+      const response = await planService.createSquareOrder(selectedPlan, appliedCoupon?.offerDetails?.code, squareToken);
       if (response.success) {
         setShowPaymentModal(false);
         const plan = plans.find(p => p._id === selectedPlan);
         setPaymentSuccessDetails({
           planName: plan?.planName,
-          transactionId: response.transaction?.gatewayCaptureId || data.orderID,
-          amount: response.transaction?.amount,
+          transactionId: response.transactionId,
+          amount: response.subscription?.amountPaid || (plan?.price - (appliedCoupon?.discountAmount || 0)),
           startDate: response.subscription?.start,
           endDate: response.subscription?.end,
         });
         toast.success("Payment successful! Plan activated.");
       }
     } catch (error) {
-      toast.error(error.message || "Payment capture failed. Please try again.");
+      toast.error(error.message || "Payment processing failed. Please try again.");
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -190,7 +173,7 @@ const Plans = () => {
             <div className="flex justify-between items-center">
               <span className="text-gray-500">Payment Method</span>
               <span className="font-semibold text-gray-900 text-sm">
-                {paymentSuccessDetails.amount === 0 ? "100% Discount / Free" : "PayPal"}
+                {paymentSuccessDetails.amount === 0 ? "100% Discount / Free" : "Square"}
               </span>
             </div>
             {paymentSuccessDetails.startDate && (
@@ -236,7 +219,7 @@ const Plans = () => {
   }
 
   return (
-    <PayPalScriptProvider options={initialOptions}>
+    <>
       <div className="min-h-screen bg-[#f7f6f3] relative overflow-hidden">
 
         {/* Soft background orbs */}
@@ -514,14 +497,19 @@ const Plans = () => {
                       )}
                     </button>
                   ) : (
-                    <div className="flex-1 z-0 relative min-h-[48px]">
-                      <PayPalButtons
-                        forceReRender={[finalPrice, appliedCoupon, selectedPlan]}
-                        style={{ layout: "horizontal", height: 48, color: "gold", shape: "rect", label: "paypal" }}
-                        createOrder={createPayPalOrder}
-                        onApprove={handlePayPalApprove}
-                        onError={() => toast.error("PayPal encountered an error. Please try again.")}
-                      />
+                    <div className="flex-1 z-0 relative min-h-[48px] bg-white rounded-xl">
+                      {processingPayment ? (
+                        <div className="flex items-center justify-center h-full gap-2">
+                          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-sm font-medium text-blue-600">Processing...</span>
+                        </div>
+                      ) : (
+                        <SquarePaymentForm 
+                          amount={finalPrice}
+                          onTokenGenerated={handleSquarePayment}
+                          onError={(err) => toast.error(err)}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -537,7 +525,7 @@ const Plans = () => {
           }
         `}</style>
       </div>
-    </PayPalScriptProvider>
+    </>
   );
 };
 
