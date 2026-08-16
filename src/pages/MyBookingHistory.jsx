@@ -2,72 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, CheckCircle, XCircle, AlertCircle, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const mockBookings = [
-  {
-    id: 'BK-8842-192',
-    vendorName: 'Vedic Ceremonies by Pt. Sharma',
-    service: 'Wedding Ceremony',
-    date: '2026-08-15',
-    time: '10:00 AM',
-    location: 'Grand Plaza Hotel, Mumbai',
-    status: 'Confirmed',
-    amount: '₹ 15,000',
-    vendorConfirmed: true,
-  },
-  {
-    id: 'BK-7731-901',
-    vendorName: 'Royal Focus Photography',
-    service: 'Pre-wedding Shoot',
-    date: '2026-07-20',
-    time: '04:00 PM',
-    location: 'Lodi Gardens, New Delhi',
-    status: 'Pending Vendor Confirmation',
-    amount: '₹ 35,000',
-    vendorConfirmed: false,
-  },
-  {
-    id: 'BK-5521-445',
-    vendorName: 'Gourmet Delights Catering',
-    service: 'Reception Catering',
-    date: '2026-08-16',
-    time: '07:00 PM',
-    location: 'Grand Plaza Hotel, Mumbai',
-    status: 'Cancelled',
-    amount: '₹ 1,50,000',
-    vendorConfirmed: false,
+const StatusBadge = ({ approvalStatus, status }) => {
+  if (approvalStatus === 'PENDING') {
+    return (
+      <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
+        <AlertCircle className="w-3.5 h-3.5" />
+        Pending Vendor Confirmation
+      </span>
+    );
   }
-];
-
-const StatusBadge = ({ status }) => {
-  switch (status) {
-    case 'Confirmed':
-      return (
-        <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
-          <CheckCircle className="w-3.5 h-3.5" />
-          Confirmed
-        </span>
-      );
-    case 'Pending Vendor Confirmation':
-      return (
-        <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 shadow-sm">
-          <AlertCircle className="w-3.5 h-3.5" />
-          Pending Confirmation
-        </span>
-      );
-    case 'Cancelled':
-      return (
-        <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 shadow-sm">
-          <XCircle className="w-3.5 h-3.5" />
-          Cancelled
-        </span>
-      );
-    default:
-      return (
-        <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 shadow-sm">
-          {status}
-        </span>
-      );
+  if (approvalStatus === 'REJECTED') {
+    return (
+      <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 shadow-sm">
+        <XCircle className="w-3.5 h-3.5" />
+        Declined by Vendor
+      </span>
+    );
   }
+  if (approvalStatus === 'ACCEPTED') {
+    return (
+      <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+        <CheckCircle className="w-3.5 h-3.5" />
+        Confirmed
+      </span>
+    );
+  }
+  // Fallback
+  return (
+    <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 shadow-sm">
+      {status || 'Unknown'}
+    </span>
+  );
 };
 
 export default function MyBookingHistory() {
@@ -75,12 +40,25 @@ export default function MyBookingHistory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching from API
-    const timer = setTimeout(() => {
-      setBookings(mockBookings);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    const fetchBookings = async () => {
+      try {
+        const token = localStorage.getItem("token"); // Assuming user token is stored as "token"
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, "")}/api/book/my-bookings`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setBookings(data.data || []);
+        }
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBookings();
   }, []);
 
   return (
@@ -117,7 +95,7 @@ export default function MyBookingHistory() {
         <div className="grid gap-6">
           {bookings.map((booking) => (
             <div 
-              key={booking.id} 
+              key={booking._id} 
               className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300 relative"
             >
               <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
@@ -127,26 +105,22 @@ export default function MyBookingHistory() {
                   {/* Left Column: Vendor info */}
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Booking ID: {booking.id}</p>
+                      <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Booking ID: {booking._id.substring(booking._id.length - 8).toUpperCase()}</p>
                       <div className="lg:hidden">
-                        <StatusBadge status={booking.status} />
+                        <StatusBadge approvalStatus={booking.approvalStatus} status={booking.status} />
                       </div>
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">{booking.vendorName}</h2>
-                    <p className="text-sm text-gray-500 font-medium">{booking.service}</p>
+                    <h2 className="text-xl font-bold text-gray-900 mb-1">{booking.vendorId?.brandName || 'Vendor'}</h2>
+                    <p className="text-sm text-gray-500 font-medium">{booking.vendorType || 'Service'}</p>
                     
                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex items-start text-sm text-gray-600">
                         <Calendar className="w-4 h-4 mr-2.5 mt-0.5 text-gray-400" />
-                        <span>{new Date(booking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        <span>{new Date(booking.bookingDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
                       </div>
                       <div className="flex items-start text-sm text-gray-600">
                         <Clock className="w-4 h-4 mr-2.5 mt-0.5 text-gray-400" />
-                        <span>{booking.time}</span>
-                      </div>
-                      <div className="flex items-start text-sm text-gray-600 sm:col-span-2">
-                        <MapPin className="w-4 h-4 mr-2.5 mt-0.5 text-gray-400 shrink-0" />
-                        <span>{booking.location}</span>
+                        <span>{booking.bookingTime}</span>
                       </div>
                     </div>
                   </div>
@@ -154,29 +128,27 @@ export default function MyBookingHistory() {
                   {/* Right Column: Status & Actions */}
                   <div className="lg:w-72 flex flex-col items-start lg:items-end lg:border-l lg:border-gray-100 lg:pl-6 pt-6 lg:pt-0 border-t border-gray-100">
                     <div className="hidden lg:block mb-4">
-                      <StatusBadge status={booking.status} />
+                      <StatusBadge approvalStatus={booking.approvalStatus} status={booking.status} />
                     </div>
                     
                     <div className="w-full bg-gray-50 rounded-xl p-4 mb-4 text-center lg:text-right">
                       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Total Amount</p>
-                      <p className="text-2xl font-bold text-gray-900">{booking.amount}</p>
+                      <p className="text-2xl font-bold text-gray-900">${booking.finalAmount.toFixed(2)}</p>
                     </div>
 
                     <div className="w-full flex gap-3">
-                      <button className="flex-1 py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
-                        View Details
-                      </button>
-                      {booking.status === 'Pending Vendor Confirmation' && (
-                        <button className="flex-1 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
-                          Cancel
-                        </button>
-                      )}
+                      <Link 
+                        to={`/vendors/${booking.vendorId?._id}`}
+                        className="flex-1 text-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
+                      >
+                        View Vendor
+                      </Link>
                     </div>
                   </div>
                 </div>
                 
                 {/* Vendor Confirmation Alert */}
-                {!booking.vendorConfirmed && booking.status !== 'Cancelled' && (
+                {booking.approvalStatus === 'PENDING' && (
                   <div className="mt-6 bg-amber-50 rounded-lg p-4 flex items-start border border-amber-100">
                     <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 mr-3 shrink-0" />
                     <div>
@@ -187,7 +159,7 @@ export default function MyBookingHistory() {
                     </div>
                   </div>
                 )}
-                {booking.vendorConfirmed && (
+                {booking.approvalStatus === 'ACCEPTED' && (
                    <div className="mt-6 bg-emerald-50 rounded-lg p-4 flex items-start border border-emerald-100">
                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 mr-3 shrink-0" />
                    <div>

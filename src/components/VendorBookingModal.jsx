@@ -24,7 +24,7 @@ export default function VendorBookingModal({ vendorId, vendorName, vendorPrice =
       const res = await fetch(`${API_BASE.replace('/api', '')}/api/coupons/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ code: couponCode, vendorId })
+        body: JSON.stringify({ code: couponCode, vendorId, moduleType: 'vendor_booking' })
       });
       const data = await res.json();
       if (data.success) {
@@ -125,21 +125,25 @@ export default function VendorBookingModal({ vendorId, vendorName, vendorPrice =
         </div>
         
         <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Date *</label>
-            <input type="date" value={bookingDate} onChange={e => setBookingDate(e.target.value)} style={inputStyle} />
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Date *</label>
+              <input type="date" value={bookingDate} onChange={e => setBookingDate(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Time *</label>
+              <input type="time" value={bookingTime} onChange={e => setBookingTime(e.target.value)} style={inputStyle} />
+            </div>
           </div>
-          <div>
-            <label style={labelStyle}>Time *</label>
-            <input type="time" value={bookingTime} onChange={e => setBookingTime(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Customer Phone *</label>
-            <input type="tel" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={inputStyle} placeholder="Your phone number" />
-          </div>
-          <div>
-            <label style={labelStyle}>Customer Email *</label>
-            <input type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} style={inputStyle} placeholder="Your email address" />
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Phone *</label>
+              <input type="tel" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={inputStyle} placeholder="Phone number" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Email *</label>
+              <input type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} style={inputStyle} placeholder="Email address" />
+            </div>
           </div>
           <div>
             <label style={labelStyle}>Booking Amount ($)</label>
@@ -193,6 +197,7 @@ const overlayStyle = {
 };
 const modalStyle = {
   background: "#fff", width: "90%", maxWidth: 450,
+  maxHeight: "90vh", overflowY: "auto",
   borderRadius: 12, padding: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.15)"
 };
 const labelStyle = { display: "block", fontSize: 13, color: "#666", marginBottom: 4 };

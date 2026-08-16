@@ -105,6 +105,7 @@ export default function VendorDashboard() {
   // Bookings
   const [bookings, setBookings] = useState([]);
   const [loadingB, setLoadingB] = useState(false);
+  const [processingBookings, setProcessingBookings] = useState({});
 
   const [formConfig, setFormConfig] = useState(null);
   const [states, setStates] = useState([]);
@@ -448,6 +449,33 @@ export default function VendorDashboard() {
       toast.error("Something went wrong");
     } finally {
       setPostingReply(false);
+    }
+  };
+
+  const handleBookingApproval = async (bookingId, approvalStatus) => {
+    try {
+      setProcessingBookings(prev => ({ ...prev, [bookingId]: true }));
+      const token = localStorage.getItem("vendorToken");
+      const res = await fetch(`${API_ORIGIN}/api/book/vendor-bookings/${bookingId}/approval`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ approvalStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Booking ${approvalStatus.toLowerCase()} successfully`);
+        setBookings(prev => prev.map(b => b._id === bookingId ? { ...b, approvalStatus } : b));
+      } else {
+        toast.error(data.message || "Failed to update booking status");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred");
+    } finally {
+      setProcessingBookings(prev => ({ ...prev, [bookingId]: false }));
     }
   };
 
@@ -1440,7 +1468,9 @@ export default function VendorDashboard() {
                             </div>
                           </div>
                           <div className="vd-enq-meta">
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#f0fdf4", color: "#166534" }}>Completed</span>
+                            {b.approvalStatus === 'PENDING' && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#fffbeb", color: "#d97706" }}>Pending Approval</span>}
+                            {b.approvalStatus === 'ACCEPTED' && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#f0fdf4", color: "#166534" }}>Accepted</span>}
+                            {b.approvalStatus === 'REJECTED' && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#fef2f2", color: "#dc2626" }}>Rejected</span>}
                             <span style={{ fontSize: 11, color: "#9ca3af" }}>{new Date(b.bookingDate).toLocaleDateString()} at {b.bookingTime}</span>
                           </div>
                         </div>
@@ -1466,6 +1496,23 @@ export default function VendorDashboard() {
                             <span style={{ fontSize: 11, color: "#6b7280" }}>
                               Coupon Used: <b>{b.appliedCouponCode}</b>
                             </span>
+                          </div>
+                        )}
+                        
+                        {b.approvalStatus === 'PENDING' && (
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                            <button 
+                              onClick={() => handleBookingApproval(b._id, 'ACCEPTED')}
+                              disabled={processingBookings[b._id]}
+                              style={{ flex: 1, padding: '8px', background: processingBookings[b._id] ? '#9ca3af' : '#16a34a', color: 'white', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: processingBookings[b._id] ? 'not-allowed' : 'pointer' }}>
+                              {processingBookings[b._id] ? 'Updating...' : 'Accept Booking'}
+                            </button>
+                            <button 
+                              onClick={() => handleBookingApproval(b._id, 'REJECTED')}
+                              disabled={processingBookings[b._id]}
+                              style={{ flex: 1, padding: '8px', background: processingBookings[b._id] ? '#9ca3af' : '#dc2626', color: 'white', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: processingBookings[b._id] ? 'not-allowed' : 'pointer' }}>
+                              {processingBookings[b._id] ? 'Updating...' : 'Reject Booking'}
+                            </button>
                           </div>
                         )}
                       </div>
