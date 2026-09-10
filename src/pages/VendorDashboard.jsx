@@ -286,6 +286,34 @@ export default function VendorDashboard() {
     return Math.round((filled / Math.max(profileFields.length, 1)) * 100);
   }, [profileFields]);
 
+  const logoUrl = useMemo(() => {
+    if (!vendor) return null;
+    const f = vendor.submission?.uploadedFiles;
+    if (!f) return null;
+    
+    const getUrl = (fileField) => {
+      if (!fileField) return null;
+      const file = Array.isArray(fileField) ? fileField[0] : fileField;
+      if (file?.url) {
+        return file.url.startsWith("http") ? file.url : `${API_ORIGIN}${file.url}`;
+      }
+      return null;
+    };
+    
+    // Check known profile image keys first
+    let url = getUrl(f.logo) || getUrl(f.brand_logo) || getUrl(f.profile_image) || getUrl(f.profile_picture);
+    if (url) return url;
+
+    // Fallback: pick the first file found that isn't a PDF
+    for (const key in f) {
+      const file = Array.isArray(f[key]) ? f[key][0] : f[key];
+      if (file?.url && !file.url.toLowerCase().endsWith('.pdf')) {
+        return file.url.startsWith("http") ? file.url : `${API_ORIGIN}${file.url}`;
+      }
+    }
+    return null;
+  }, [vendor]);
+
   const handleLogout = () => {
     localStorage.removeItem("vendorToken");
     localStorage.removeItem("vendorData");
@@ -833,11 +861,12 @@ export default function VendorDashboard() {
       <div className="vd-topbar">
         {/* Brand */}
         <div className="vd-topbar-brand">
-          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#c2894b,#8b5e3c)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 600, fontSize: 14 }}>
-            {initial}
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#c2894b,#8b5e3c)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 600, fontSize: 14 }}>
+            {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initial}
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.2 }}>{vendor.brandName || "Vendor"}</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{vendor.vendorType || vendor.submission?.data?.category || ""}</div>
           </div>
         </div>
 
@@ -948,6 +977,21 @@ export default function VendorDashboard() {
                   </div>
               }
             </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+              <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#fdf8f3", border: "1px solid #e8d5bc", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Vendor Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <span style={{ fontSize: 32, color: "#c2894b", fontWeight: 600 }}>{initial}</span>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#1a1a1a" }}>{vendor.brandName || "Vendor Logo"}</div>
+                <div style={{ fontSize: 13, color: "#6b7280" }}>{logoUrl ? "Your profile logo" : "No logo uploaded"}</div>
+              </div>
+            </div>
+
             <div className="vd-grid-2">
               {profileFields.map(f => (
                 <div key={f.key}>

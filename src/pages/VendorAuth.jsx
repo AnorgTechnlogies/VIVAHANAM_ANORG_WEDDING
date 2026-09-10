@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,6 +40,58 @@ export default function AuthPage() {
   });
 
   const [errors, setErrors] = useState({});
+  const [vendorTypes, setVendorTypes] = useState([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const formRes = await fetch(`${API_URL}/marketplace/forms/vendor_onboarding/config`);
+        const formData = await formRes.json().catch(() => ({}));
+
+        const sections = formData?.data?.sections || [];
+        const categoryField = sections
+          .flatMap((section) => section?.fields || [])
+          .find((field) => field?.key === "category");
+
+        let categoryOptions = (categoryField?.options || []).map((option) => ({
+          value: option?.value || option?.label || "",
+          label: option?.label || option?.value || "",
+          order: option?.order || 0,
+        })).filter((option) => option.value && option.label);
+
+        if (categoryOptions.length > 0) {
+          categoryOptions = categoryOptions.sort((a, b) => {
+            if (a.order !== b.order) return a.order - b.order;
+            return a.label.localeCompare(b.label);
+          });
+          setVendorTypes(categoryOptions);
+        } else {
+          const catRes = await fetch(`${API_URL}/categories`);
+          const catData = await catRes.json().catch(() => ({}));
+          let categoriesData = (catData?.data || []).map((item) => ({
+            value: item?.value || item?.name || item?.label || "",
+            label: item?.label || item?.name || item?.value || "",
+          })).filter((item) => item.value && item.label);
+          
+          categoriesData = categoriesData.sort((a, b) => 
+            a.label.localeCompare(b.label)
+          );
+          setVendorTypes(categoriesData);
+        }
+      } catch (error) {
+        console.error("Failed to load vendor types", error);
+        setVendorTypes([
+          { value: "Pandit", label: "Priests/Pandits" },
+          { value: "Photographer", label: "Photographer" },
+          { value: "Venue", label: "Venue" },
+          { value: "Makeup", label: "Makeup" },
+          { value: "Catering", label: "Catering" },
+          { value: "Decorator", label: "Decorator" }
+        ]);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -63,7 +115,8 @@ export default function AuthPage() {
       else if (!/^\d{10}$/.test(form.mobile)) newErrors.mobile = "Mobile must be 10 digits";
       if (form.password !== form.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
       if (!form.vendorType) newErrors.vendorType = "Vendor type is required";
-      if (form.vendorType === "Pandit") {
+      const isPandit = ["pandit", "priest"].some(keyword => form.vendorType.toLowerCase().includes(keyword));
+      if (isPandit) {
         if (!form.panditClassification) newErrors.panditClassification = "Priests/Pandits category is required";
         if (!form.price) newErrors.price = "Booking amount is required";
       }
@@ -517,17 +570,14 @@ export default function AuthPage() {
                           className={`w-full px-4 py-3.5 bg-gray-50/50 border rounded-xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none text-sm font-medium text-gray-800 ${errors.vendorType ? 'border-red-500' : 'border-gray-200'}`}
                         >
                           <option value="">Select Vendor Type</option>
-                          <option value="Pandit">Priests/Pandits</option>
-                          <option value="Photographer">Photographer</option>
-                          <option value="Venue">Venue</option>
-                          <option value="Makeup">Makeup</option>
-                          <option value="Catering">Catering</option>
-                          <option value="Decorator">Decorator</option>
+                          {vendorTypes.map((type) => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                          ))}
                         </select>
                         {errors.vendorType && <p className="text-red-500 text-xs mt-1 ml-2">{errors.vendorType}</p>}
                       </div>
 
-                      {form.vendorType === "Pandit" && (
+                      {["pandit", "priest"].some(keyword => form.vendorType.toLowerCase().includes(keyword)) && (
                         <>
                           <div className="relative group">
                             <select
