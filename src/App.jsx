@@ -1,5 +1,6 @@
 import Navbar from "./components/navbar"
 import Footer from "./components/footer"
+import ScrollToTop from "./components/ScrollToTop";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import VendorList from "./pages/VendorList";
@@ -16,6 +17,7 @@ import Plans from "./pages/Plans";
 function App() {
   return (
     <>
+      <ScrollToTop />
       <Navbar />
       <main className="min-h-screen pt-24 pb-8 bg-gray-50">
         <Routes>
