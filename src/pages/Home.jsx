@@ -134,7 +134,7 @@ const Home = () => {
     <div className="w-full bg-gray-50 min-h-screen -mt-8">
 
       {/* Hero Section */}
-      <section className="relative h-[80vh] min-h-[600px] flex items-center justify-center pt-20">
+      <section className="relative z-20 h-[80vh] min-h-[600px] flex items-center justify-center pt-20">
         <div className="absolute inset-0 z-0">
           <img
             src={heroImage}
