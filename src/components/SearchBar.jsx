@@ -125,7 +125,7 @@ const SearchBar = ({ onSearch }) => {
           </div>
 
           {isCategoryOpen && (
-            <div className="absolute bottom-full left-0 mb-2 w-full bg-white border border-gray-100 shadow-xl rounded-xl max-h-[280px] overflow-y-auto z-50">
+            <div className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-100 shadow-xl rounded-xl max-h-[280px] overflow-y-auto z-50">
               <div
                 className="px-3 py-2 text-xs md:text-sm hover:bg-red-50 cursor-pointer text-gray-500 transition-colors"
                 onClick={() => { setCategory(""); setIsCategoryOpen(false); }}
@@ -177,7 +177,7 @@ const SearchBar = ({ onSearch }) => {
           </div>
 
           {isLocationOpen && (
-            <div className="absolute bottom-full left-0 mb-2 w-full bg-white border border-gray-100 shadow-xl rounded-xl max-h-[280px] overflow-y-auto z-50">
+            <div className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-100 shadow-xl rounded-xl max-h-[280px] overflow-y-auto z-50">
               <div
                 className="px-3 py-2 text-xs md:text-sm hover:bg-red-50 cursor-pointer text-gray-500 transition-colors"
                 onClick={() => { setLocation(""); setIsLocationOpen(false); }}

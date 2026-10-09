@@ -391,10 +391,13 @@ export default function AuthPage() {
                       <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors" size={20} />
                       <input
                         type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        autoComplete="one-time-code"
                         placeholder="6-digit OTP"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none tracking-[0.5em] font-mono font-bold text-lg"
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none tracking-widest font-mono font-bold text-lg"
                         value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                       />
                     </div>
                     <div className="relative group">
@@ -671,10 +674,13 @@ export default function AuthPage() {
                       <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-rose-500 transition-colors" size={20} />
                       <input
                         type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        autoComplete="one-time-code"
                         placeholder="6-digit OTP"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none tracking-[0.5em] font-mono font-bold text-lg text-gray-800"
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none tracking-widest font-mono font-bold text-lg text-gray-800"
                         value={registerOtp}
-                        onChange={(e) => setRegisterOtp(e.target.value)}
+                        onChange={(e) => setRegisterOtp(e.target.value.replace(/\D/g, ''))}
                       />
                     </div>
                     <button
