@@ -104,6 +104,7 @@ export default function VendorDashboard() {
 
   // Bookings
   const [bookings, setBookings] = useState([]);
+  const [bookingSummary, setBookingSummary] = useState(null);
   const [loadingB, setLoadingB] = useState(false);
   const [processingBookings, setProcessingBookings] = useState({});
 
@@ -200,7 +201,7 @@ export default function VendorDashboard() {
 
   /* fetch reviews for vendor dashboard */
   useEffect(() => {
-    if (tab !== "review" && tab !== "bookings") return;
+    if (tab !== "review" && tab !== "bookings" && tab !== "overview") return;
     const t = localStorage.getItem("vendorToken");
     if (!vendor || !t) return;
 
@@ -214,13 +215,16 @@ export default function VendorDashboard() {
       }).finally(() => setLoadingR(false));
     }
 
-    if (tab === "bookings") {
+    if (tab === "bookings" || tab === "overview") {
       setLoadingB(true);
       fetch(`${API_ORIGIN}/api/book/vendor-bookings`, {
         headers: { Authorization: `Bearer ${t}` }
       }).then(r => r.json()).then(d => {
-        if (d.success) setBookings(d.data || []);
-      }).finally(() => setLoadingB(false));
+        if (d.success) {
+          setBookings(d.data || []);
+          if (d.summary) setBookingSummary(d.summary);
+        }
+      }).catch(console.error).finally(() => setLoadingB(false));
     }
   }, [vendor, tab, API_ORIGIN]);
 
@@ -246,6 +250,32 @@ export default function VendorDashboard() {
       .catch(console.error).finally(() => setLoadingSub(false));
   }, [tab]);
 
+  const financialMetrics = useMemo(() => {
+    const effectiveRate = bookingSummary?.effectiveCommissionRate ?? vendor?.effectiveCommissionRate ?? (vendor?.commissionPercentage !== null && vendor?.commissionPercentage !== undefined ? vendor.commissionPercentage : 10);
+    const isCustom = bookingSummary?.isCustomCommission ?? (vendor?.commissionPercentage !== null && vendor?.commissionPercentage !== undefined);
+    const totalGross = bookings.reduce((sum, b) => sum + (b.finalAmount ?? b.baseAmount ?? 0), 0);
+    const totalCommission = bookings.reduce((sum, b) => {
+      const gross = b.finalAmount ?? b.baseAmount ?? 0;
+      const comm = b.platformCommissionAmount != null ? b.platformCommissionAmount : (gross * (b.commissionRate ?? effectiveRate) / 100);
+      return sum + comm;
+    }, 0);
+    const totalPostCommissionIncome = bookings.reduce((sum, b) => {
+      const gross = b.finalAmount ?? b.baseAmount ?? 0;
+      const comm = b.platformCommissionAmount != null ? b.platformCommissionAmount : (gross * (b.commissionRate ?? effectiveRate) / 100);
+      const post = b.vendorEarningsAmount != null ? b.vendorEarningsAmount : (gross - comm);
+      return sum + post;
+    }, 0);
+
+    return {
+      totalBookings: bookings.length,
+      totalGross,
+      totalCommission,
+      totalPostCommissionIncome,
+      effectiveRate,
+      isCustom
+    };
+  }, [bookings, bookingSummary, vendor]);
+
   const profileFields = useMemo(() => {
     if (!vendor) return [];
     const subData = vendor.submission?.data || {};
@@ -255,6 +285,7 @@ export default function VendorDashboard() {
       { key: "email", label: "Email", value: vendor.email || subData.email, editable: false },
       { key: "mobile", label: "Mobile", value: vendor.mobile || subData.mobile, editable: true },
       { key: "city", label: "City", value: vendor.city || subData.city, editable: true, type: "city_select" },
+      { key: "commissionRate", label: "Platform Commission", value: `${financialMetrics.effectiveRate}% (${financialMetrics.isCustom ? 'Custom Rate' : 'Standard Rate'})`, editable: false },
       { key: "createdAt", label: "Joined On", value: vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", editable: false },
     ];
     if (vendor.vendorType?.toLowerCase() === "pandit" || subData.category?.toLowerCase() === "pandit") {
@@ -262,7 +293,7 @@ export default function VendorDashboard() {
       fields.push({ key: "price", label: "Booking Amount ($)", value: vendor.price || 0, editable: true, type: "number" });
     }
     return fields;
-  }, [vendor, categories]);
+  }, [vendor, categories, financialMetrics]);
 
   const subEntries = useMemo(() => {
     const p = editForm ? formData : vendor?.submission?.data;
@@ -937,6 +968,50 @@ export default function VendorDashboard() {
                 ))}
               </div>
 
+              {/* Financial Snapshot */}
+              <div style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)", border: "1px solid #bbf7d0", borderRadius: 12, padding: "20px 22px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>💵</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "#166534" }}>Financial & Earnings Snapshot</div>
+                      <div style={{ fontSize: 12, color: "#4b5563" }}>Your post-commission income and platform commission rate</div>
+                    </div>
+                  </div>
+                  <button onClick={() => setTab("bookings")} style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
+                    View All Bookings →
+                  </button>
+                </div>
+
+                <div className="vd-grid-4">
+                  <div style={{ background: "#fff", border: "1px solid #dcfce7", borderRadius: 10, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 11, color: "#15803d", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700, marginBottom: 4 }}>Post-Commission Income</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#166534" }}>${financialMetrics.totalPostCommissionIncome.toFixed(2)}</div>
+                    <div style={{ fontSize: 11, color: "#16a34a", marginTop: 4, fontWeight: 500 }}>Your net take-home earnings</div>
+                  </div>
+
+                  <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600, marginBottom: 4 }}>Total Gross Sales</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#1a1a1a" }}>${financialMetrics.totalGross.toFixed(2)}</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{financialMetrics.totalBookings} completed booking{financialMetrics.totalBookings === 1 ? '' : 's'}</div>
+                  </div>
+
+                  <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600, marginBottom: 4 }}>Platform Fee Retained</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#dc2626" }}>-${financialMetrics.totalCommission.toFixed(2)}</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Service charge ({financialMetrics.effectiveRate}%)</div>
+                  </div>
+
+                  <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600, marginBottom: 4 }}>Commission Rate</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#c2894b" }}>{financialMetrics.effectiveRate}%</div>
+                    <div style={{ fontSize: 11, color: financialMetrics.isCustom ? "#b45309" : "#6b7280", marginTop: 4, fontWeight: 600 }}>
+                      {financialMetrics.isCustom ? "★ Custom Rate Set by Admin" : "Standard Category Rate"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div style={{ background: "#fff", border: "1px solid #f0ede8", borderRadius: 12, padding: "20px 22px" }}>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14, color: "#1a1a1a" }}>Profile Summary</div>
                 <div className="vd-grid-3">
@@ -1481,10 +1556,79 @@ export default function VendorDashboard() {
 
           {/* ── BOOKINGS ── */}
           {tab === "bookings" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Post-Commission Financial Overview Banner */}
+              <div style={{
+                background: "linear-gradient(135deg, #064e3b 0%, #047857 60%, #059669 100%)",
+                borderRadius: 14,
+                padding: "24px 26px",
+                color: "#fff",
+                boxShadow: "0 10px 25px -5px rgba(5, 150, 105, 0.25)"
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+                  <div>
+                    <span style={{ display: "inline-block", background: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", marginBottom: 8 }}>
+                      Earnings & Payout Dashboard
+                    </span>
+                    <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>Your Post-Commission Income</h2>
+                    <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
+                      Accurate real-time breakdown of gross client sales, platform commission deduction, and your net take-home earnings.
+                    </p>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)", borderRadius: 10, padding: "8px 14px", border: "1px solid rgba(255,255,255,0.2)", textAlign: "right" }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", textTransform: "uppercase" }}>Your Commission Tier</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>
+                      {financialMetrics.effectiveRate}%
+                      <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 6, padding: "2px 6px", borderRadius: 4, background: financialMetrics.isCustom ? "#fef3c7" : "rgba(255,255,255,0.25)", color: financialMetrics.isCustom ? "#92400e" : "#fff" }}>
+                        {financialMetrics.isCustom ? "Custom Override" : "Category Default"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 }}>
+                  <div style={{ background: "#ffffff", borderRadius: 10, padding: "16px 18px", color: "#1a1a1a", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}>
+                    <div style={{ fontSize: 11, color: "#047857", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700, marginBottom: 4 }}>
+                      💰 Post-Commission Income
+                    </div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: "#065f46" }}>
+                      ${financialMetrics.totalPostCommissionIncome.toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#059669", marginTop: 4, fontWeight: 500 }}>
+                      Your net take-home income
+                    </div>
+                  </div>
+
+                  <div style={{ background: "rgba(255, 255, 255, 0.15)", backdropFilter: "blur(6px)", borderRadius: 10, padding: "16px 18px", border: "1px solid rgba(255, 255, 255, 0.2)" }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600, marginBottom: 4 }}>
+                      Total Gross Sales
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#fff" }}>
+                      ${financialMetrics.totalGross.toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", marginTop: 4 }}>
+                      {bookings.length} completed booking{bookings.length === 1 ? '' : 's'}
+                    </div>
+                  </div>
+
+                  <div style={{ background: "rgba(255, 255, 255, 0.15)", backdropFilter: "blur(6px)", borderRadius: 10, padding: "16px 18px", border: "1px solid rgba(255, 255, 255, 0.2)" }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600, marginBottom: 4 }}>
+                      Platform Fee Deducted
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#fecaca" }}>
+                      -${financialMetrics.totalCommission.toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", marginTop: 4 }}>
+                      Platform service charge ({financialMetrics.effectiveRate}%)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bookings List Card */}
               <div style={{ background: "#fff", border: "1px solid #f0ede8", borderRadius: 12, padding: "22px 24px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>My Bookings & Payments</div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>My Bookings & Payments Breakdown</div>
                   {bookings.length > 0 && (
                     <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#f0fdf4", color: "#16a34a" }}>
                       {bookings.length} completed
@@ -1496,71 +1640,83 @@ export default function VendorDashboard() {
                   ? <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af", fontSize: 13 }}>Loading…</div>
                   : bookings.length === 0
                     ? <Empty icon="📅" text="No bookings yet." />
-                    : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {bookings.map(b => (
-                        <div key={b._id} className="vd-enq"
-                          style={{ border: "1px solid #f0ede8", borderRadius: 11, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, background: "#fff" }}>
+                    : <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {bookings.map(b => {
+                        const gross = b.finalAmount ?? b.baseAmount ?? 0;
+                        const commRate = b.commissionRate != null ? b.commissionRate : financialMetrics.effectiveRate;
+                        const commAmount = b.platformCommissionAmount != null ? b.platformCommissionAmount : (gross * commRate / 100);
+                        const netEarnings = b.vendorEarningsAmount != null ? b.vendorEarningsAmount : (gross - commAmount);
 
-                          <div className="vd-enq-header">
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#c2894b,#8b5e3c)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 600, fontSize: 16, flexShrink: 0 }}>
-                                📅
+                        return (
+                          <div key={b._id} className="vd-enq"
+                            style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+
+                            <div className="vd-enq-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#c2894b,#8b5e3c)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 600, fontSize: 18, flexShrink: 0 }}>
+                                  📅
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{b.userId?.name || (b.userId?.firstName ? `${b.userId.firstName} ${b.userId.lastName || ''}`.trim() : "Customer")}</div>
+                                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                                    {b.customerPhone || b.userId?.phone || "No phone"} · {b.customerEmail || b.userId?.email || "No email"}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="vd-enq-meta" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                {b.approvalStatus === 'PENDING' && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a" }}>Pending Approval</span>}
+                                {b.approvalStatus === 'ACCEPTED' && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}>Accepted</span>}
+                                {b.approvalStatus === 'REJECTED' && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>Rejected</span>}
+                                <span style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", padding: "3px 8px", borderRadius: 6, border: "1px solid #f3f4f6" }}>
+                                  {new Date(b.bookingDate).toLocaleDateString()} at {b.bookingTime}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Income & Commission Breakdown */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, background: "#fcfbf9", border: "1px solid #f0ede8", borderRadius: 10, padding: "12px 14px" }}>
+                              <div>
+                                <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Gross Paid by Client</div>
+                                <div style={{ fontSize: 15, fontWeight: 600, color: "#374151" }}>${gross.toFixed(2)}</div>
                               </div>
                               <div>
-                                <div style={{ fontWeight: 600, fontSize: 13, color: "#1a1a1a" }}>{b.userId?.name || "Customer"}</div>
-                                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 1 }}>{b.userId?.phone} · {b.userId?.email}</div>
+                                <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Platform Fee ({commRate}%)</div>
+                                <div style={{ fontSize: 15, fontWeight: 600, color: "#dc2626" }}>-${commAmount.toFixed(2)}</div>
+                              </div>
+                              <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: "6px 12px" }}>
+                                <div style={{ fontSize: 10, color: "#065f46", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700, marginBottom: 1 }}>Post-Commission Income</div>
+                                <div style={{ fontSize: 17, fontWeight: 800, color: "#047857" }}>+${netEarnings.toFixed(2)}</div>
                               </div>
                             </div>
-                            <div className="vd-enq-meta">
-                              {b.approvalStatus === 'PENDING' && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#fffbeb", color: "#d97706" }}>Pending Approval</span>}
-                              {b.approvalStatus === 'ACCEPTED' && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#f0fdf4", color: "#166534" }}>Accepted</span>}
-                              {b.approvalStatus === 'REJECTED' && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#fef2f2", color: "#dc2626" }}>Rejected</span>}
-                              <span style={{ fontSize: 11, color: "#9ca3af" }}>{new Date(b.bookingDate).toLocaleDateString()} at {b.bookingTime}</span>
-                            </div>
-                          </div>
 
-                          <div className="vd-enq-details">
-                            {[[
-                              "Total Amount", `$${b.baseAmount.toFixed(2)}`
-                            ], [
-                              "Platform Fee", `$${b.platformCommissionAmount.toFixed(2)}`
-                            ], [
-                              "Your Earnings", `$${b.vendorEarningsAmount.toFixed(2)}`
-                            ]].map(([l, v]) => (
-                              <div key={l} style={{ fontSize: 12 }}>
-                                <span style={{ color: "#9ca3af" }}>{l}: </span>
-                                <span style={{ fontWeight: l === "Your Earnings" ? 700 : 500, color: l === "Your Earnings" ? "#166534" : "#374151" }}>{v}</span>
+                            {b.appliedCouponCode && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 7, background: "#f5f3ff", borderRadius: 7, padding: "5px 9px", border: "1px solid #e9e5ff", width: "fit-content" }}>
+                                <span style={{ fontSize: 13 }}>🏷️</span>
+                                <span style={{ fontSize: 11, color: "#6b7280" }}>
+                                  Coupon Applied: <b>{b.appliedCouponCode}</b> (Discount: ${Number(b.discountAmount || 0).toFixed(2)})
+                                </span>
                               </div>
-                            ))}
+                            )}
+
+                            {b.approvalStatus === 'PENDING' && (
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                <button
+                                  onClick={() => handleBookingApproval(b._id, 'ACCEPTED')}
+                                  disabled={processingBookings[b._id]}
+                                  style={{ flex: 1, padding: '9px', background: processingBookings[b._id] ? '#9ca3af' : '#16a34a', color: 'white', borderRadius: '7px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: processingBookings[b._id] ? 'not-allowed' : 'pointer' }}>
+                                  {processingBookings[b._id] ? 'Updating...' : 'Accept Booking'}
+                                </button>
+                                <button
+                                  onClick={() => handleBookingApproval(b._id, 'REJECTED')}
+                                  disabled={processingBookings[b._id]}
+                                  style={{ flex: 1, padding: '9px', background: processingBookings[b._id] ? '#9ca3af' : '#dc2626', color: 'white', borderRadius: '7px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: processingBookings[b._id] ? 'not-allowed' : 'pointer' }}>
+                                  {processingBookings[b._id] ? 'Updating...' : 'Reject Booking'}
+                                </button>
+                              </div>
+                            )}
                           </div>
-
-                          {b.appliedCouponCode && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 7, background: "#f5f3ff", borderRadius: 7, padding: "5px 9px", border: "1px solid #e9e5ff", width: "fit-content" }}>
-                              <span style={{ fontSize: 13 }}>🏷️</span>
-                              <span style={{ fontSize: 11, color: "#6b7280" }}>
-                                Coupon Used: <b>{b.appliedCouponCode}</b>
-                              </span>
-                            </div>
-                          )}
-
-                          {b.approvalStatus === 'PENDING' && (
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                              <button
-                                onClick={() => handleBookingApproval(b._id, 'ACCEPTED')}
-                                disabled={processingBookings[b._id]}
-                                style={{ flex: 1, padding: '8px', background: processingBookings[b._id] ? '#9ca3af' : '#16a34a', color: 'white', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: processingBookings[b._id] ? 'not-allowed' : 'pointer' }}>
-                                {processingBookings[b._id] ? 'Updating...' : 'Accept Booking'}
-                              </button>
-                              <button
-                                onClick={() => handleBookingApproval(b._id, 'REJECTED')}
-                                disabled={processingBookings[b._id]}
-                                style={{ flex: 1, padding: '8px', background: processingBookings[b._id] ? '#9ca3af' : '#dc2626', color: 'white', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: processingBookings[b._id] ? 'not-allowed' : 'pointer' }}>
-                                {processingBookings[b._id] ? 'Updating...' : 'Reject Booking'}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                 }
               </div>

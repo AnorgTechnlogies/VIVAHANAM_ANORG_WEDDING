@@ -13,6 +13,7 @@ import MyShortlist from "./pages/MyShortlist";
 import MyBookingHistory from "./pages/MyBookingHistory";
 import SignUp from "./pages/SignUp";
 import Plans from "./pages/Plans";
+import SubscriptionPlans from "./pages/SubscriptionPlans";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
           
           <Route path="/sign-up" element={<SignUp />} />
           <Route path="/plans" element={<Plans />} />
+          <Route path="/subscription-plans" element={<SubscriptionPlans />} />
         </Routes>
       </main>
       <Footer />
